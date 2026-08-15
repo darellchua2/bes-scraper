@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/darellchua2/bes-scraper/schemas/ptw-record.schema.json",
+  "title": "PTW Record",
+  "description": "One Permit-To-Work row from BES ctmgr (program 3021), merged from grid, preview (workflow), downloadpreview (checklists) and downloadattachment (attachments).",
+  "type": "object",
+  "required": ["apply_id", "serial_no", "company", "type", "date_of_application", "status"],
+  "properties": {
+    "apply_id": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Site primary key; used by staffdownload/preview endpoints and PDF filename PTW<apply_id>.pdf"
+    },
+    "serial_no": {
+      "type": "string",
+      "description": "Human serial, e.g. 'LTA CR101/PTW/Lifting Operation/49982'"
+    },
+    "company": { "type": "string", "description": "Contractor company name as registered" },
+    "title": { "type": "string", "description": "Work description / title" },
+    "type": {
+      "type": "string",
+      "enum": [
+        "Confined Space", "Demolition", "Excavation", "Formwork",
+        "General for Resumption", "General Works",
+        "Gondola / Suspended Scaffold / MCWP", "Hot Work", "Ladder",
+        "Lifting Operation", "MEWP",
+        "Mobilisation/Demolisation of Plant or Machinery",
+        "Permit for Removal/ Alteration of Safety Provision", "Piling",
+        "Scaffolding", "Working At Height"
+      ]
+    },
+    "date_of_application": {
+      "type": "string",
+      "description": "Raw site format 'dd MMM yyyy HH:MM:SS', e.g. '15 Aug 2026 11:24:44'"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Submitted", "Assessed(Assessor)", "Assessed2(Assessor)",
+        "Acknowledged", "Approved(Approver)", "Inspector",
+        "Applicant - Works completion", "Closure Accepted(Approver)",
+        "Rejected(Assessor)", "Rejected(Approver)", "Rejected(In Charge)",
+        "Revoked"
+      ]
+    },
+    "workflow": {
+      "type": "array",
+      "description": "Approval chain from r=license/licensepdf/preview",
+      "items": {
+        "type": "object",
+        "required": ["step", "approver_name", "role"],
+        "properties": {
+          "step": { "type": "integer", "minimum": 1 },
+          "approver_name": { "type": "string" },
+          "role": {
+            "type": "string",
+            "description": "Observed: Applicant, Assessed, Acknowledge (action taken at that step)"
+          }
+        }
+      }
+    },
+    "checklist_report_ids": {
+      "type": "array",
+      "description": "Checklist apply_ids from r=license/licensepdf/downloadpreview",
+      "items": { "type": "string", "pattern": "^[0-9]+$" }
+    },
+    "attachment_ids": {
+      "type": "array",
+      "description": "Attachment ids from r=license/licensepdf/downloadattachment (downloadattachment(<id>,<apply_id>))",
+      "items": { "type": "string", "pattern": "^[0-9]+$" }
+    },
+    "pdf_file": {
+      "type": "string",
+      "description": "Relative path of the downloaded PDF, e.g. '2026-08-15/PTW1786764284822.pdf'"
+    }
+  }
+}

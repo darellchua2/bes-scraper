@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/darellchua2/bes-scraper/schemas/equipment-record.schema.json",
+  "title": "Equipment Record",
+  "description": "One machine row from device/equipment/grid (2475 entries). Row key is the getDetail id (hidden first column).",
+  "type": "object",
+  "required": ["equipment_id", "equipment_type", "registration_no"],
+  "properties": {
+    "equipment_id": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Hidden first grid column; argument of getDetail(this,'<id>')"
+    },
+    "equipment_type": {
+      "type": "string",
+      "description": "e.g. 'Boom & Scissor Lift'"
+    },
+    "registration_no": {
+      "type": "string",
+      "description": "e.g. 'LP 385248 B' (MOM-style lifting plant registration)"
+    },
+    "equipment_name": { "type": "string", "description": "e.g. 'Boomlift 831 A'" },
+    "status": { "type": "string", "description": "e.g. 'Available'" },
+    "created_on": { "type": "string", "description": "Site format 'dd MMM yyyy'" }
+  }
+}

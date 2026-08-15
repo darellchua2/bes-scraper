@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/darellchua2/bes-scraper/schemas/staff-record.schema.json",
+  "title": "Staff Record",
+  "description": "One worker row from comp/staff/grid (4207 entries). Row key is the getDetail id (hidden first column).",
+  "type": "object",
+  "required": ["staff_id", "full_name"],
+  "properties": {
+    "staff_id": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Hidden first grid column; argument of getDetail(this,'<id>')"
+    },
+    "sn": { "type": "integer", "description": "Row sequence number (page-scoped, not stable)" },
+    "full_name": {
+      "type": "string",
+      "description": "Often prefixed with badge no., e.g. '( JYB- 2678 ) SARKER TAPAN', '(LTA) KEVIN GUILLEM'"
+    },
+    "badge_no": {
+      "type": ["string", "null"],
+      "description": "Badge/company prefix extracted from full_name if present, else null"
+    },
+    "mobile_no": { "type": "string" },
+    "nric_fin": {
+      "type": "string",
+      "description": "NRIC/FIN/passport no., e.g. 'M3188796P', '065703688', 'S7062182G'"
+    },
+    "id_type": {
+      "type": "string",
+      "enum": ["WP", "IC", "SP", "EP", "FIN", "Passport"],
+      "description": "Observed: WP (Work Permit), IC (Singapore IC). Others likely exist."
+    },
+    "nationality": { "type": "string", "description": "e.g. 'Bangladeshi', 'Singaporean'" },
+    "designation": { "type": "string", "description": "e.g. 'General Worker', 'Other'" },
+    "secondment": { "type": "string", "enum": ["Y", "N"] },
+    "status": { "type": "string", "description": "e.g. 'Normal'" },
+    "created_on": { "type": "string", "description": "Site format 'dd MMM yyyy', e.g. '05 Jan 2026'" }
+  }
+}

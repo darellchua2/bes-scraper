@@ -48,12 +48,21 @@ fetch new records.
 ## Output layout
 
 ```
-downloads/ptw/
-  index.xlsx          # Excel index, rebuilt every run
-  .state.json         # walked-pages + per-id metadata (do not delete)
-  2026-08-15/         # one dir per day, by PTW date
-    PTW<apply_id>.pdf
+downloads/ptw/          # raw artifacts (gitignored, disposable)
+  index.xlsx            # Excel index, rebuilt every run
+  .state.json           # walked-pages + per-id metadata (do not delete)
+  YYYY-MM-DD/PTW<apply_id>.pdf
+data/                   # reusable structured exports (gitignored, regenerate)
+  ptw.jsonl             # .venv/bin/python export.py
+schemas/                # JSON Schemas — the field contract for migration
+docs/api.md             # every callable site endpoint, verified
 ```
+
+Data reusability order for migrating off BES: `schemas/` defines the field
+contract → `export.py` emits conforming JSONL from scraper state → PDFs stay
+as source-of-truth blobs keyed by `apply_id`. Registers (staff 4207,
+equipment 2475, company docs 103) are documented in `docs/api.md` +
+`schemas/` ready for a future export run.
 
 ## Configuration (env vars)
 

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/darellchua2/bes-scraper/schemas/company-document.schema.json",
+  "title": "Company Document",
+  "description": "One company document row from document/company/grid (103 entries).",
+  "type": "object",
+  "required": ["document_name", "uploaded_on"],
+  "properties": {
+    "document_id": {
+      "type": ["string", "null"],
+      "description": "Short code column when present, e.g. 'COS55'; null when the row leads with a name"
+    },
+    "document_name": {
+      "type": "string",
+      "description": "e.g. 'YANGFAN CJY SWP METAL AND DRAIN COVER SL'"
+    },
+    "favorite": { "type": ["string", "null"], "description": "Star flag column" },
+    "label": { "type": "string", "description": "e.g. 'Others'" },
+    "uploaded_on": { "type": "string", "description": "Site format 'dd MMM yyyy HH:MM:SS'" }
+  }
+}

@@ -1,18 +1,21 @@
 # bes-scraper
 
-Headless scraper for PTW licenses on service.globalbes.sg. Logs in (LLM-solved
-captcha), walks the license grid newest-first, downloads new PTW PDFs, and
-maintains an Excel index. Built for unattended scheduled runs.
+Headless scraper suite for service.globalbes.sg (BES / LTA CR101). Logs in
+(LLM-solved captcha), walks the license grid newest-first, downloads new PTW
+PDFs, maintains an Excel index, and scrapes the supporting registers and
+per-PTW workflow data. Built for unattended scheduled runs and data migration.
 
-## One script to run
+## Scripts
 
-```bash
-.venv/bin/python ptw_scraper.py          # daily incremental (the cron entry)
-.venv/bin/python ptw_scraper.py --reorganize   # one-time migration (already done)
-```
-
-Everything else in `probes/` is debug tooling used during development — do not
-schedule or run them.
+| Script | Purpose | Schedule? |
+| ------ | ------- | --------- |
+| `ptw_scraper.py` | PTW PDFs + metadata + `index.xlsx` (incremental) | **yes — the cron entry** |
+| `scrape_ptw_extras.py` | workflow trails, checklist + attachment ids per PTW | optional (re-run before export) |
+| `scrape_staff.py` | staff register → `downloads/staff/staff.jsonl` | optional |
+| `scrape_equipment.py` | equipment register → `downloads/equipment/equipment.jsonl` | optional |
+| `scrape_company.py` | company documents register → `downloads/company/company.jsonl` | optional |
+| `export.py` | `.state.json` → `data/ptw.jsonl` (migration export) | before migrating |
+| `probes/` | development debug scripts | never |
 
 ## Setup
 
@@ -51,7 +54,11 @@ fetch new records.
 downloads/ptw/          # raw artifacts (gitignored, disposable)
   index.xlsx            # Excel index, rebuilt every run
   .state.json           # walked-pages + per-id metadata (do not delete)
+  extras.jsonl          # per-PTW workflow steps + checklist/attachment ids
   YYYY-MM-DD/PTW<apply_id>.pdf
+downloads/staff/staff.jsonl            # 4207 records
+downloads/equipment/equipment.jsonl    # 2475 records
+downloads/company/company.jsonl        # 103 records
 data/                   # reusable structured exports (gitignored, regenerate)
   ptw.jsonl             # .venv/bin/python export.py
 schemas/                # JSON Schemas — the field contract for migration
@@ -59,10 +66,11 @@ docs/api.md             # every callable site endpoint, verified
 ```
 
 Data reusability order for migrating off BES: `schemas/` defines the field
-contract → `export.py` emits conforming JSONL from scraper state → PDFs stay
-as source-of-truth blobs keyed by `apply_id`. Registers (staff 4207,
-equipment 2475, company docs 103) are documented in `docs/api.md` +
-`schemas/` ready for a future export run.
+contract → scrapers emit conforming JSONL into `downloads/` → `export.py`
+consolidates → PDFs stay as source-of-truth blobs keyed by `apply_id`.
+Current coverage: PTW PDFs + metadata (2964), workflow trails (15 254 steps),
+checklist references (6541), attachment references (16 246), and the staff /
+equipment / company-docs registers.
 
 ## Configuration (env vars)
 

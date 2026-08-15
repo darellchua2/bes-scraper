@@ -1,8 +1,10 @@
-"""Scrape the equipment register into data/equipment.jsonl.
+"""Scrape the equipment register into downloads/equipment/equipment.jsonl.
 
 Walks device/equipment/grid pages (20 rows each, newest first), parses row
 metadata per schemas/equipment-record.schema.json, and writes one JSON object
-per line. Idempotent: re-running refreshes the file from the live grid.
+per line. Idempotent: re-running refreshes the file from the live grid. If a
+per-equipment PDF/document download is added later, follow the downloads/ptw
+layout (per-day dirs + index.xlsx).
 
 Env: PTW_PROGRAM_ID (default 3021). Exit codes: 0 ok, 2 login fail, 3 parse
 mismatch (rows written vs grid total).
@@ -16,7 +18,7 @@ from pathlib import Path
 
 from ptw_scraper import BASE, PROGRAM_ID, connect, log
 
-OUT_FILE = Path("data/equipment.jsonl")
+OUT_FILE = Path("downloads/equipment/equipment.jsonl")
 
 
 def parse_equipment_rows(html: str) -> list[dict]:

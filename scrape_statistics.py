@@ -60,7 +60,10 @@ def main() -> int:
             if r.status_code != 200:
                 log(f"{label}: HTTP {r.status_code}, skipping")
                 continue
-            counters = {c["label"]: c["data"] for c in r.json()}
+            payload = r.json()
+            if not payload:  # windows before project start return null
+                continue
+            counters = {c["label"]: c["data"] for c in payload}
             f.write(json.dumps({"window": label, "start_date": sd,
                                 "end_date": ed, "counters": counters}) + "\n")
             log(f"{label}: {counters.get('PTW', '?')} PTWs")

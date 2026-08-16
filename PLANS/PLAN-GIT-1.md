@@ -27,15 +27,15 @@ Read-only dashboard over the BES Postgres archive using Next.js as a full framew
 
 ### Phase 1: Static-export plumbing
 
-- [ ] **1.1** Set `output: 'export'` in `frontend/next.config.ts`
+- [x] **1.1** Set `output: 'export'` in `frontend/next.config.ts`
     — **Why:** enables the whole static-HTML-export architecture; every later step assumes it
     — **Done when:** `npm run build` emits `frontend/out/` with `.html` per route
     — **Consumers affected:** build pipeline
-- [ ] **1.2** Add `pg` + `@types/pg`; create `frontend/lib/db.ts` (pooled connection, `DATABASE_URL` env, default local :5435, JSDoc on exports)
+- [x] **1.2** Add `pg` + `@types/pg`; create `frontend/lib/db.ts` (pooled connection, `DATABASE_URL` env, default local :5435, JSDoc on exports)
     — **Why:** single build-time DB access point; avoids per-page connection boilerplate
     — **Done when:** `lib/db.ts` exports a query helper and typechecks
     — **Consumers affected:** `lib/queries.ts`
-- [ ] **1.3** Create `frontend/lib/queries.ts` (KPI totals, permits-by-month, type/status breakdowns) and smoke-test on `app/page.tsx`
+- [x] **1.3** Create `frontend/lib/queries.ts` (KPI totals, permits-by-month, type/status breakdowns) and smoke-test on `app/page.tsx`
     — **Why:** proves DB→build wiring end-to-end before any view work; cheapest point to catch connection/config errors
     — **Done when:** exported `out/index.html` renders a real DB-derived number (e.g. 2,964 permits)
     — **Consumers affected:** all page Server Components

@@ -93,3 +93,72 @@ export async function getPermitsByMonth(): Promise<MonthCount[]> {
      GROUP BY 1 ORDER BY 1`,
   );
 }
+
+/** Observed transition between consecutive approval-chain stages. */
+export interface StageTransition {
+  from: string;
+  to: string;
+  count: number;
+}
+
+/** Permit count at one lifecycle stage for one current status. */
+export interface StageStatusCount {
+  stage: string;
+  status: string;
+  count: number;
+}
+
+/**
+ * Normalizes a raw BES workflow role to its canonical chain role.
+ * Raw values are dirty (19 observed): name-prefixed variants like
+ * 'JYB3788 AHMED SAZIM  Applicant' plus junk like '-->' (→ 'Other').
+ * Suffix matching per potential_implementation/base-information.md §2.
+ */
+const CANON_ROLE_SQL = `CASE
+  WHEN role LIKE '%Closure Applicant' THEN 'Closure Applicant'
+  WHEN role LIKE '%Closure Accept' THEN 'Closure Accept'
+  WHEN role LIKE '%Acknowledge' THEN 'Acknowledge'
+  WHEN role LIKE '%Assessed' THEN 'Assessed'
+  WHEN role LIKE '%Approve' THEN 'Approve'
+  WHEN role LIKE '%Applicant' THEN 'Applicant'
+  ELSE 'Other'
+END`;
+
+/**
+ * Count observed transitions between consecutive approval-chain steps,
+ * canonicalizing the dirty raw role values by suffix.
+ *
+ * @returns one row per (from_stage, to_stage) pair, descending by count
+ */
+export async function getStageTransitions(): Promise<StageTransition[]> {
+  return query<StageTransition>(
+    `WITH steps AS (
+       SELECT apply_id, seq, ${CANON_ROLE_SQL} AS stage
+       FROM approval_steps
+     )
+     SELECT a.stage AS "from", b.stage AS "to", count(*)::int AS count
+     FROM steps a
+     JOIN steps b ON b.apply_id = a.apply_id AND b.seq = a.seq + 1
+     WHERE a.stage <> 'Other' AND b.stage <> 'Other'
+     GROUP BY 1, 2 ORDER BY 3 DESC`,
+  );
+}
+
+/**
+ * Count permits by (canonical stage of the trail's last step, current status).
+ * Locates where in the lifecycle permits currently sit, incl. terminal states.
+ *
+ * @returns one row per (stage, status) pair
+ */
+export async function getStageStatusCounts(): Promise<StageStatusCount[]> {
+  return query<StageStatusCount>(
+    `SELECT stage, status, count(*)::int AS count FROM (
+       SELECT DISTINCT ON (p.apply_id)
+              p.apply_id, p.status, ${CANON_ROLE_SQL} AS stage
+       FROM permits p
+       JOIN approval_steps a ON a.apply_id = p.apply_id
+       ORDER BY p.apply_id, a.seq DESC
+     ) t
+     GROUP BY 1, 2 ORDER BY 1, 2`,
+  );
+}

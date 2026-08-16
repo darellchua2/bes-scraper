@@ -29,13 +29,18 @@ returns HTTP 500.
 | `r=license/licensepdf/querystatus` | POST | `ptwmode` | Status options; special-cased for program 3021/212 |
 | `r=license/licensepdf/userbatch` | POST | `id`, `tag=id1\|id2\|…`, `startrow`, `per_read_cnt=4` | Server PDF cache fill (4/batch) |
 | `r=license/licensepdf/compress&curpage=<n>` | GET | — | ZIP of batched PDFs — flaky (HTTP 500 on stale cache); avoid |
-| `r=license/licensepdf/monthreport`, `batchmonthreport` | GET | — | Monthly report tables |
-| `r=license/licensepdf/createqrpdf` | POST | `tag`, `startrow`, `per_read_cnt`, `program_id` | QR PDF generation |
-| `r=license/licensepdf/downloadqrzip` | GET | — | QR ZIP (after createqrpdf) |
+| `r=license/licensepdf/monthreport` | GET | `program_id` | Modal form → real export below |
+| `r=license/upload/monthexport` | GET | `program_id`, `month` (`MMM yyyy`) | **Monthly safety report** — gzip-compressed .xlsx (accidents, AFR, mandays, category %, per-company, PTW statuses). Used by `scrape_monthly_reports.py` |
+| `r=license/licensepdf/createqrpdf` | POST | `tag` (`id1\|id2\|…`), `startrow`, `per_read_cnt`, `program_id` | Renders QR sticker PDFs server-side; JSON `{file_path}` |
+| `r=license/licensepdf/downloadqrzip` | GET | — | ZIP of the rendered QR sticker PDFs (printable labels; no new data) — verified working |
+| `r=license/upload/export` | POST/GET | `program_id` (**plain**, not `q[…]`), `month` | Queues async export task → `{"status":"1"}`; **no download UI/route exists** — unusable by web accounts |
 
-Known quirk: grid `q[start_date]/q[end_date]` (`dd MMM yyyy`) filtering is
-server-side broken — dates partially applied, program scoping lost. Walk pages
-and filter client-side instead.
+## Statistics drill-down (program 3021)
+
+| Call | Method | Params | Returns |
+|------|--------|--------|---------|
+| `r=statistics/module/moduledaycnt` | POST | `id`, `start_date`, `end_date` (dd MMM yyyy) | 12 summary counters `{label, data}` (PTW/TBM/Checklist/Inspection/Meeting/Training/RA/Incident + participants) — used by `scrape_statistics.py` |
+| `r=statistics/module/dateappgrid` | GET (ajax) | `page`, `q[program_id]`, `q[start_date]`, `q[end_date]` (dd MMM yyyy), `contractor_id`, `operator_id`, `operator_name`, `q_order=` | Paginated (20/page) per-date × per-company rows: date, company, ptw/tbm/meeting/training cnt+staff, inspection, ra, checklist, incident — **the only retrievable TBM data**; used by `scrape_company_stats.py`. Full-range query 500s → use ≤1-year windows |
 
 ## Registers
 
@@ -44,10 +49,24 @@ and filter client-side instead.
 | `r=comp/staff/list` | GET | `comp/staff/grid&page=0&q_order=` | `getDetail` id | S/N, Full Name (badge prefix), Mobile, NRIC/FIN, ID Type (WP/IC/…), Nationality, Designation, Secondment Y/N, Status, Created On |
 | `r=device/equipment/list` | GET | `device/equipment/grid` | `getDetail` id | Equipment Type, Registration No., Equipment Name, Status, Created On |
 | `r=document/company/list` | GET | `document/company/grid` | doc code/name | Document Name, Favorite, Label, Uploaded On |
-| `r=statistics/module/daylist`, `monlist` | GET | — | — | Daily/monthly statistics pages |
-| `r=proj/project/downloadepss` | GET | — | — | EPSS download |
-| `r=license/upload/export` | POST | — | — | Returns `{"status":"1"}` (params required) |
 
-Dead (404): `license/licensepdf/detail`, `dboard/menu`.
+Known quirk: license grid `q[start_date]/q[end_date]` (`dd MMM yyyy`) filtering
+is server-side broken — dates partially applied, program scoping lost. Walk
+pages and filter client-side instead.
+
+## Detail modals
+
+| Call | Method | Params | Returns |
+|------|--------|--------|---------|
+| `r=comp/staff/detail` | POST (ajax) | `id` | JSON `{status, detail:html}` — only adds `Project` field |
+| `r=device/equipment/detail` | POST (ajax) | `id` | JSON — only adds `Where The Project` field |
+
+## Verified dead / unusable
+
+- `license/licensepdf/detail`, `dboard/menu` — 404.
+- `proj/report/exportepss` (`downloadepss` modal, params `program_id`, `type_id` 1/2/3, `month`) — 500 `CDbException: Table 'cmsdb2.atd_program_attend_YYYYMM' doesn't exist` for all months probed (attendance archive never created).
+- Individual TBM/meeting/training/RA/incident record modules — no web route exists (mobile-app only); dozens of guessed `routine/*`, `license/*` routes 404.
+- `license/licensepdf/compress` — flaky HTTP 500 (stale cache).
+- `statistics/module/modulemonthcnt` (monlist sibling) — HTTP 500 server-side.
 
 Field-level schemas: see `schemas/*.schema.json`.

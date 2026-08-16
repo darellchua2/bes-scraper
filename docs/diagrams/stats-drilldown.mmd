@@ -1,0 +1,7 @@
+flowchart LR
+    A[daylist page] -->|POST moduledaycnt<br/>window dd MMM yyyy| B[12 summary counters]
+    A -->|GET dateappgrid<br/>20 rows/page| C[per-company per-day rows]
+    B --> D{window > 1 year?}
+    D -->|yes| E[HTTP 500 — split<br/>into year windows]
+    D -->|no| F[(statistics.jsonl<br/>company_daily.jsonl)]
+    C --> F

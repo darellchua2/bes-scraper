@@ -1,0 +1,10 @@
+flowchart TD
+    L[login + captcha solve] --> G[walk PTW grid<br/>newest-first]
+    G --> P[download PTW PDFs<br/>4 workers]
+    P --> X[extras: workflow +<br/>checklist/attachment ids]
+    X --> B[binaries: CHK/ATT files]
+    G --> S[(.state.json + index.xlsx)]
+    X --> E[(extras.jsonl)]
+    R[registers: staff /<br/>equipment / company] --> J[(*.jsonl)]
+    ST[statistics: month +<br/>company/day + xlsx] --> J
+    E --> EXP[export.py] --> O[(data/ptw.jsonl)]

@@ -1,0 +1,7 @@
+flowchart TD
+    P[PTW apply_id] -->|downloadpreview| C[checklist ids]
+    P -->|downloadattachment| A[attachment ids]
+    C -->|routineinspection/downloadpdf&check_id| CPDF[CHK&lt;id&gt;.pdf]
+    A -->|downloadptwattachment&doc_id| APDF[ATT&lt;id&gt;.pdf]
+    CPDF --> D[(downloads/ptw/checklists<br/>4,255 files)]
+    APDF --> E[(downloads/ptw/attachments<br/>278 files)]

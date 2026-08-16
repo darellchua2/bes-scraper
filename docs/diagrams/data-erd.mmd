@@ -1,0 +1,106 @@
+erDiagram
+    PROGRAM ||--o{ PTW_APPLICATION : "scopes"
+    COMPANY ||--o{ PTW_APPLICATION : "applicant"
+    PTW_APPLICATION ||--|{ WORKFLOW_STEP : "has trail"
+    PTW_APPLICATION }o--o{ CHECKLIST_REPORT : "evidenced by"
+    PTW_APPLICATION }o--o{ ATTACHMENT : "supported by"
+    COMPANY ||--o{ STAFF : "employs"
+    STAFF }o--o{ PROGRAM : "assigned (detail modal)"
+    PROGRAM ||--o{ EQUIPMENT : "hosts"
+    COMPANY ||--o{ COMPANY_DOC : "owns"
+    PROGRAM ||--o{ DAILY_COMPANY_STAT : "aggregates"
+    PROGRAM ||--o{ MONTHLY_STAT : "aggregates"
+    DAILY_COMPANY_STAT }o--|| COMPANY : "per company/day"
+    WORKFLOW_STEP }o--|| STAFF : "acted by"
+
+    PROGRAM {
+        int program_id PK
+        string ptype "MC|SC"
+        string name "LTA CR101"
+    }
+    PTW_APPLICATION {
+        bigint apply_id PK
+        int program_id FK
+        string ptw_ref "LTA CR101/PTW/WAH/50147"
+        string company_name
+        string description
+        string ptw_type "Working At Height"
+        datetime created_on
+        string status "Submitted|Assessed|Approved|Closure Accepted|Revoked|Closed"
+    }
+    WORKFLOW_STEP {
+        bigint apply_id FK
+        int step "1..6"
+        string approver_name
+        string role "Applicant|Assessed|Acknowledge|Approve|Closure Applicant"
+        datetime acted_on "inferred"
+    }
+    CHECKLIST_REPORT {
+        bigint check_id PK
+        bigint apply_id FK
+        string file "CHK<id>.pdf|jpg|png"
+        datetime created_on "inferred"
+    }
+    ATTACHMENT {
+        bigint doc_id PK
+        bigint apply_id FK
+        string file "ATT<id>.<ext>"
+        datetime uploaded_on "inferred"
+    }
+    STAFF {
+        int staff_id PK
+        string sn
+        string full_name
+        string badge_no "CJY/JYB prefix"
+        string mobile_no
+        string nric_fin
+        string id_type "WP|IC|FIN"
+        string nationality
+        string designation
+        bool secondment
+        string status
+        datetime created_on
+    }
+    EQUIPMENT {
+        int equipment_id PK
+        string equipment_type
+        string registration_no
+        string equipment_name
+        string status
+        string where_project "LTA CR101"
+        datetime created_on
+    }
+    COMPANY_DOC {
+        string doc_code PK
+        string document_name
+        bool favorite
+        string label
+        datetime uploaded_on
+    }
+    COMPANY {
+        int contractor_id PK "140"
+        string operator_id "T06FC6884E"
+        string name "China Jingye … (SB)"
+    }
+    DAILY_COMPANY_STAT {
+        date stat_date
+        int contractor_id FK
+        int ptw_cnt
+        int ptw_staff
+        int tbm_cnt
+        int tbm_staff
+        int inspection_cnt
+        int meeting_cnt
+        int meeting_staff
+        int training_cnt
+        int training_staff
+        int ra_cnt
+        int checklist_cnt
+        int incident_cnt
+    }
+    MONTHLY_STAT {
+        string window "YYYY-MM|YTD-YYYY"
+        date start_date
+        date end_date
+        json counters "12 labels->data"
+    }

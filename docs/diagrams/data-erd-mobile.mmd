@@ -1,0 +1,30 @@
+erDiagram
+    PTW_APPLICATION ||--o{ TBM_SESSION : "briefs crew for"
+    TBM_SESSION ||--|{ TBM_ATTENDANCE : "captures"
+    TBM_SESSION }o--|| STAFF : "led by"
+    PTW_APPLICATION ||--o{ INCIDENT : "may log"
+    PROGRAM ||--o{ TRAINING_SESSION : "runs"
+
+    TBM_SESSION {
+        bigint tbm_id PK
+        bigint apply_id FK
+        date held_on
+        string topic "inferred"
+    }
+    TBM_ATTENDANCE {
+        bigint tbm_id FK
+        int staff_id FK
+        datetime checked_in "face-rec, inferred"
+    }
+    TRAINING_SESSION {
+        bigint training_id PK
+        int program_id FK
+        string course
+        date held_on
+    }
+    INCIDENT {
+        bigint incident_id PK
+        bigint apply_id FK
+        string severity
+        datetime occurred_on
+    }

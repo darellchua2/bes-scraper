@@ -1,0 +1,28 @@
+flowchart LR
+    subgraph BES["BES server (cmsdb2, MySQL/Yii)"]
+        direction TB
+        PGM[[program<br/>3021=PTW, 1504=container]]
+        APP[[license_apply<br/>PTW applications]]
+        WF[[workflow steps]]
+        CHK[[checklist report<br/>check_id]]
+        ATT[[attachment<br/>doc_id]]
+        ST[[staff]]
+        EQ[[equipment]]
+        DOC[[company doc]]
+        STAT[[stats tables<br/>+ atd_program_attend_YYYYMM]]
+        FB[("cms-filebase/<br/>PDF / QR tmp")]
+        PGM --> APP --> WF
+        APP --> CHK & ATT
+        PGM --> STAT
+    end
+    subgraph OUR["bes-scraper archive (this repo)"]
+        direction TB
+        S1[("downloads/ptw/<br/>YYYY-MM-DD/PTW&lt;id&gt;.pdf")]
+        S2[("extras.jsonl<br/>workflow + ids")]
+        S3[("checklists/CHK&lt;id&gt;<br/>attachments/ATT&lt;id&gt;")]
+        S4[("staff / equipment /<br/>company .jsonl")]
+        S5[("statistics/<br/>statistics + company_daily.jsonl<br/>monthreports/*.xlsx")]
+        S6[("index.xlsx +<br/>.state.json")]
+        S7[("data/ptw.jsonl<br/>via export.py")]
+    end
+    BES -->|HTTP scrape| OUR

@@ -1,0 +1,71 @@
+erDiagram
+    PROJECT ||--o{ PERMIT : "scopes"
+    PROJECT ||--o{ FIELD_SESSION : "scopes"
+    PERMIT ||--|{ APPROVAL_ACTION : "has trail"
+    PERMIT }o--o{ EVIDENCE : "via PERMIT_EVIDENCE"
+    STAFF ||--o{ APPROVAL_ACTION : "acts"
+    EVIDENCE {
+        bigint evidence_id PK
+        string kind "checklist|attachment|company_doc"
+        string file_path
+        string media_type "PDF|PNG|JPEG"
+        string owner_company "company_doc only"
+        datetime created_on
+    }
+    PERMIT_EVIDENCE {
+        bigint permit_id FK
+        bigint evidence_id FK
+    }
+    PERMIT {
+        bigint apply_id PK
+        int project_id FK
+        string contractor_name
+        string ptw_type "open vocab"
+        string title
+        date work_start
+        date work_end
+        datetime created_on
+        int permit_seq "ref derived"
+    }
+    APPROVAL_ACTION {
+        bigint id PK
+        bigint permit_id FK
+        int seq "1..n"
+        string chain_role "canonical"
+        string outcome "passed|rejected|revoked|closure-accepted"
+        int actor_staff_id FK "nullable legacy"
+        string actor_name "legacy audit copy"
+        datetime acted_on "new capability"
+    }
+    STAFF {
+        int staff_id PK
+        string full_name
+        string nric_fin "PII masked"
+        string id_type "WP|IC|SP|PR|EP"
+        string nationality
+        string designation
+        bool secondment
+        json project_ids
+        datetime created_on
+    }
+    EQUIPMENT {
+        int equipment_id PK
+        string equipment_type "open vocab 50 obs"
+        string registration_no
+        string equipment_name
+        datetime created_on
+    }
+    FIELD_SESSION {
+        bigint session_id PK
+        int project_id FK
+        string kind "tbm|training"
+        date held_on
+        int attendee_count
+        string topic
+        bigint permit_id FK "optional"
+    }
+    PROJECT {
+        int project_id PK
+        string code "LTA CR101"
+        string name
+    }

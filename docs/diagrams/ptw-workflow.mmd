@@ -1,0 +1,8 @@
+flowchart LR
+    A[Applicant<br/>submits] --> B1[Assessor 1<br/>Assessed]
+    B1 --> B2[Assessor 2<br/>Assessed]
+    B2 --> C[Supervisor<br/>Acknowledge]
+    C --> D[Approver<br/>Approve]
+    D --> E[Applicant<br/>Closure]
+    E --> F[Closed]
+    D -.->|reject| R[Revoked]

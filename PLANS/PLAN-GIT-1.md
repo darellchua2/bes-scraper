@@ -64,37 +64,37 @@ Read-only dashboard over the BES Postgres archive using Next.js as a full framew
 
 ### Phase 4: Company trends (`/companies`)
 
-- [ ] **4.1** Static JSON route handler for `company_daily_stats` (20.6k rows)
+- [x] **4.1** Static JSON route handler for `company_daily_stats` (20.6k rows)
     — **Why:** too large for baked props; static-export route handlers emit fetchable JSON at build time (GET-only, supported)
     — **Done when:** `out/` contains the JSON with all rows (count check = 20,659)
     — **Consumers affected:** `/companies` client component
-- [ ] **4.2** Company selector + multi-metric line chart (ptw/tbm/training/inspection over time) + per-company totals table
+- [x] **4.2** Company selector + multi-metric line chart (ptw/tbm/training/inspection over time) + per-company totals table
     — **Why:** the per-company trend view requested
     — **Done when:** switching company updates chart and totals in the exported site
     — **Consumers affected:** `/companies` route
 
 ### Phase 5: Staff & equipment registers
 
-- [ ] **5.1** Static JSON route handlers for staff (4,207) and equipment (2,475)
+- [x] **5.1** Static JSON route handlers for staff (4,207) and equipment (2,475)
     — **Why:** client-side search/filter needs the full datasets in the browser
     — **Done when:** both JSON files exist in `out/` with correct row counts
     — **Consumers affected:** `/staff`, `/equipment` client components
-- [ ] **5.2** Shared search/filter table component + `/staff` and `/equipment` pages
+- [x] **5.2** Shared search/filter table component + `/staff` and `/equipment` pages
     — **Why:** the registers view; one shared table keeps it to a single implementation
     — **Done when:** text filtering works on both registers in the export
     — **Consumers affected:** `/staff`, `/equipment` routes
 
 ### Phase 6: Pipeline + polish
 
-- [ ] **6.1** One-command pipeline script chaining `python db/load.py` (optional) + `next build`
+- [x] **6.1** One-command pipeline script chaining `python db/load.py` (optional) + `next build`
     — **Why:** data freshness = rebuild; a single command is the whole refresh UX
     — **Done when:** one command rebuilds the export from a fresh DB load
     — **Consumers affected:** user workflow
-- [ ] **6.2** Shared nav/layout across routes + README note on viewing `out/`
+- [x] **6.2** Shared nav/layout across routes + README note on viewing `out/`
     — **Why:** route discoverability and usage docs
     — **Done when:** nav present on all pages; README documents build + serve steps
     — **Consumers affected:** all routes
-- [ ] **6.3** Full verification gate: clean-state chain run, serve `out/`, verify all 5 routes + `npm run lint`
+- [x] **6.3** Full verification gate: clean-state chain run, serve `out/`, verify all 5 routes + `npm run lint`
     — **Why:** maps directly to the issue acceptance criteria
     — **Done when:** all acceptance criteria in issue #1 check out
     — **Consumers affected:** issue #1 closure

@@ -42,22 +42,22 @@ Read-only dashboard over the BES Postgres archive using Next.js as a full framew
 
 ### Phase 2: Overview (`/`)
 
-- [ ] **2.1** KPI cards on `/` (permits, active vs terminal split, companies, staff, equipment, evidence counts)
+- [x] **2.1** KPI cards on `/` (permits, active vs terminal split, companies, staff, equipment, evidence counts)
     — **Why:** top-line numbers are the primary ask of the overview view
     — **Done when:** all cards render DB-derived values in the export
     — **Consumers affected:** `/` route
-- [ ] **2.2** `components/charts.tsx` (recharts client components) + permits-per-month area, ptw_type bar, status donut on `/`
+- [x] **2.2** `components/charts.tsx` (recharts client components) + permits-per-month area, ptw_type bar, status donut on `/`
     — **Why:** visual breakdowns requested in overview; recharts is the one chart dep for the whole app
     — **Done when:** three charts render with real data in the export
     — **Consumers affected:** `/` route; `/companies` reuses chart components
 
 ### Phase 3: Permit lifecycle flow (`/flow`)
 
-- [ ] **3.1** Build-time aggregation query: consecutive-role transition counts from `approval_steps` + permit count per `status`
+- [x] **3.1** Build-time aggregation query: consecutive-role transition counts from `approval_steps` + permit count per `status`
     — **Why:** the node-edge diagram's nodes, edge weights, and sizes all come from this one aggregation
     — **Done when:** query returns transition pairs with counts and per-status totals (spot-check sums ≈ 2,964)
     — **Consumers affected:** `/flow` page
-- [ ] **3.2** `components/permit-flow.tsx` (mermaid client component fed the build-time definition) + per-stage plain-English explainers
+- [x] **3.2** `components/permit-flow.tsx` (mermaid client component fed the build-time definition) + per-stage plain-English explainers
     — **Why:** the requested "decision-tree style" lifecycle view with stage explanations
     — **Done when:** diagram renders in the export with edge counts; every stage has an explainer
     — **Consumers affected:** `/flow` route
@@ -102,7 +102,7 @@ Read-only dashboard over the BES Postgres archive using Next.js as a full framew
 ## Technical Notes
 
 - Next 16 differs from training data — consult `frontend/node_modules/next/dist/docs/` before writing code (static-exports guide verified: Server Components run at build; Route Handlers emit static JSON, GET-only; no cookies/headers/ISR/server actions).
-- Deps added: `pg`, `@types/pg`, `recharts`, `mermaid`. Nothing else.
+- Deps added: `pg`, `@types/pg`, `recharts`, `mermaid`, shadcn/ui (card, chart, select, input, badge, table). Nothing else.
 - DB: `DATABASE_URL` env, default local Postgres :5435 (container `bes-postgres`, db/user `bes`).
 - JSDoc on all exported lib functions/components (repo docstring rule).
 - Dev server port 3001 is taken — use 3000.

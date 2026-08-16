@@ -83,7 +83,7 @@ flowchart TD
 | US-21 | safety manager | see monthly counters for PTW/TBM/inspection/checklist/training/RA/incident | trends are visible at a glance | [`statistics/module/daylist`](https://service.globalbes.sg/ctmgr/index.php?r=statistics/module/daylist) → `moduledaycnt` | Aug 1–16 2026: PTW 3,325 / 24,606 staff; Checklist 5,727 |
 | US-22 | safety manager | drill counters down by company and day | hotspots get attention | [`dateappgrid`](https://service.globalbes.sg/ctmgr/index.php?r=statistics/module/dateappgrid&page=0&q%5Bprogram_id%5D=3021&q%5Bstart_date%5D=01+Aug+2026&q%5Bend_date%5D=16+Aug+2026&contractor_id=&operator_id=&operator_name=&q_order=) | 20 rows/page; `company_daily.jsonl` |
 | US-23 | manager | export a monthly safety report (accidents, AFR, unsafe categories, company contributions) | statutory/contractual reporting is one click | [`monthreport`](https://service.globalbes.sg/ctmgr/index.php?r=license/licensepdf/monthreport) → `license/upload/monthexport` | 104 `.xlsx` (2018-01→2026-08) in `downloads/monthreports/` |
-| US-24 | manager | export PTW register to Excel (async) | offline analysis | `license/upload/export` — **broken**: queues a task, no download route | returns `{"status":"1"}`, file never retrievable |
+| US-24 | manager | export PTW register to Excel (async) | offline analysis | `license/upload/export` → `license/upload/task` → `license/upload/exportdownload` | monthly registers `.xlsx` in `downloads/ptwreports/` via `scrape_ptw_reports.py` |
 
 ### Statistics drill-down flow
 

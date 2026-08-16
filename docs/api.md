@@ -33,7 +33,9 @@ returns HTTP 500.
 | `r=license/upload/monthexport` | GET | `program_id`, `month` (`MMM yyyy`) | **Monthly safety report** — gzip-compressed .xlsx (accidents, AFR, mandays, category %, per-company, PTW statuses). Used by `scrape_monthly_reports.py` |
 | `r=license/licensepdf/createqrpdf` | POST | `tag` (`id1\|id2\|…`), `startrow`, `per_read_cnt`, `program_id` | Renders QR sticker PDFs server-side; JSON `{file_path}` |
 | `r=license/licensepdf/downloadqrzip` | GET | — | ZIP of the rendered QR sticker PDFs (printable labels; no new data) — verified working |
-| `r=license/upload/export` | POST/GET | `program_id` (**plain**, not `q[…]`), `month` | Queues async export task → `{"status":"1"}`; **no download UI/route exists** — unusable by web accounts |
+| `r=license/upload/export` | POST/GET | `program_id` (**plain**, not `q[…]`), `month` | Queues async export task → `{"status":"1"}`; month must be pre-encoded (`Aug%202026` — server urldecodes, plain space drops the year) |
+| `r=license/upload/task` | POST | `program_id` | Lists export tasks (newest first); Done = status `"1"` + report `url` |
+| `r=license/upload/exportdownload&id=<task_id>` | GET | — | Downloads the queued export (.xlsx) — used by `scrape_ptw_reports.py` |
 
 ## Statistics drill-down (program 3021)
 

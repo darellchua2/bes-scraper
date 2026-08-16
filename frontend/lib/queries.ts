@@ -254,3 +254,84 @@ export async function getEquipment(): Promise<EquipmentRow[]> {
      FROM equipment ORDER BY equipment_type, equipment_name`,
   );
 }
+
+/** Minimal permit row for client-side date filtering (static JSON). */
+export interface PermitListRow {
+  apply_id: number;
+  applied_on: string;
+  status: string;
+  ptw_type: string;
+  company: string;
+}
+
+/**
+ * Fetch every permit's filterable fields for the static JSON endpoint.
+ *
+ * @returns all permits ordered by application date
+ */
+export async function getPermitList(): Promise<PermitListRow[]> {
+  return query<PermitListRow>(
+    `SELECT apply_id, applied_on::date::text AS applied_on, status, ptw_type, company
+     FROM permits ORDER BY applied_on`,
+  );
+}
+
+/** Minimal approval-step row for client-side flow recomputation. */
+export interface StepRow {
+  apply_id: number;
+  seq: number;
+  role: string;
+}
+
+/**
+ * Fetch every approval trail step for the static JSON endpoint.
+ *
+ * @returns all steps ordered by permit then sequence
+ */
+export async function getApprovalSteps(): Promise<StepRow[]> {
+  return query<StepRow>(
+    `SELECT apply_id, seq, role FROM approval_steps ORDER BY apply_id, seq`,
+  );
+}
+
+/** Inclusive [from, to] date extent of a register table. */
+export interface CoverageRange {
+  from: string | null;
+  to: string | null;
+}
+
+/** Registration-date extent of the staff register. */
+export async function getStaffCoverage(): Promise<CoverageRange> {
+  const rows = await query<CoverageRange>(
+    `SELECT min(created_on)::text AS "from", max(created_on)::text AS "to" FROM staff`,
+  );
+  return rows[0];
+}
+
+/** Registration-date extent of the equipment register. */
+export async function getEquipmentCoverage(): Promise<CoverageRange> {
+  const rows = await query<CoverageRange>(
+    `SELECT min(created_on)::text AS "from", max(created_on)::text AS "to" FROM equipment`,
+  );
+  return rows[0];
+}
+
+/** One (month, status) row from the historical permit register aggregate. */
+export interface MonthlyStatusCount {
+  month: string;
+  status: string;
+  count: number;
+}
+
+/**
+ * Historical permit counts per month and status, aggregated from the BES
+ * monthly PTW register exports (keyed by permit start month).
+ *
+ * @returns rows ordered by month then status
+ */
+export async function getMonthlyPermitStatus(): Promise<MonthlyStatusCount[]> {
+  return query<MonthlyStatusCount>(
+    `SELECT stat_month AS month, status, count FROM monthly_permit_status
+     ORDER BY stat_month, status`,
+  );
+}

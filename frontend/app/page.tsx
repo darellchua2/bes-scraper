@@ -1,77 +1,30 @@
-import {
-  getOverviewKpis,
-  getPermitsByMonth,
-  getPermitsByStatus,
-  getPermitsByType,
-} from "@/lib/queries";
-import {
-  PermitsByMonthChart,
-  PermitsByStatusChart,
-  PermitsByTypeChart,
-} from "@/components/charts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { OverviewDashboard } from "@/components/overview-dashboard";
+import { getOverviewKpis } from "@/lib/queries";
 
+/**
+ * Overview page: date-filterable permit KPIs + charts, all-company activity
+ * comparison, and export-to-HTML. Permit figures compute client-side from the
+ * static /data/permits payload; register totals render at build time.
+ */
 export default async function Home() {
-  const [kpis, byMonth, byType, byStatus] = await Promise.all([
-    getOverviewKpis(),
-    getPermitsByMonth(),
-    getPermitsByType(),
-    getPermitsByStatus(),
-  ]);
-
-  const cards: [string, string][] = [
-    ["Permits", kpis.permits.toLocaleString()],
-    ["Active / Terminal", `${kpis.permitsActive.toLocaleString()} / ${kpis.permitsTerminal.toLocaleString()}`],
-    ["Companies", kpis.companies.toLocaleString()],
-    ["Staff", kpis.staff.toLocaleString()],
-    ["Equipment", kpis.equipment.toLocaleString()],
-    ["Evidence", `${kpis.checklists.toLocaleString()} CHK / ${kpis.attachments.toLocaleString()} ATT`],
-  ];
-
+  const kpis = await getOverviewKpis();
   return (
     <main className="mx-auto max-w-6xl p-8">
       <h1 className="text-2xl font-bold">BES Dashboard</h1>
-
-      <section className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        {cards.map(([label, value]) => (
-          <Card key={label}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground">{label}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-lg font-semibold">{value}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </section>
-
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Permits per month</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <PermitsByMonthChart data={byMonth} />
-        </CardContent>
-      </Card>
-
-      <section className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Permits by type</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PermitsByTypeChart data={byType} />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Permits by status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PermitsByStatusChart data={byStatus} />
-          </CardContent>
-        </Card>
-      </section>
+      <p className="text-muted-foreground mt-1 text-sm">
+        Permits by application date — use the range filter to zoom into a
+        period.
+      </p>
+      <div className="mt-6">
+        <OverviewDashboard
+          totals={{
+            staff: kpis.staff,
+            equipment: kpis.equipment,
+            checklists: kpis.checklists,
+            attachments: kpis.attachments,
+          }}
+        />
+      </div>
     </main>
   );
 }

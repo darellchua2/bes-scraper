@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DateRangeFilter, type DateRange } from "@/components/date-range-filter";
 import type { CompanyDailyRow } from "@/lib/queries";
 
 const trendConfig = {
@@ -36,20 +37,29 @@ export function CompanyTrends({ companies }: { companies: string[] }) {
   const [rows, setRows] = useState<CompanyDailyRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [company, setCompany] = useState(companies[0] ?? "");
+  const [range, setRange] = useState<DateRange | null>(null);
 
   useEffect(() => {
     fetch("/data/company-daily")
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
+        return r.json() as Promise<CompanyDailyRow[]>;
       })
-      .then(setRows)
+      .then((loaded) => {
+        setRows(loaded);
+        setRange({ from: loaded[0]?.date ?? "", to: loaded[loaded.length - 1]?.date ?? "" });
+      })
       .catch((e) => setError(String(e)));
   }, []);
 
   const data = useMemo(
-    () => (rows ?? []).filter((r) => r.company === company),
-    [rows, company],
+    () =>
+      (rows ?? []).filter(
+        (r) =>
+          r.company === company &&
+          (!range || (r.date >= range.from && r.date <= range.to)),
+      ),
+    [rows, company, range],
   );
 
   const totals = useMemo(() => {
@@ -64,23 +74,31 @@ export function CompanyTrends({ companies }: { companies: string[] }) {
   }, [data]);
 
   if (error) return <pre className="text-sm text-red-600">{error}</pre>;
-  if (!rows) return <p className="text-sm text-muted-foreground">Loading daily stats…</p>;
+  if (!rows || !range) return <p className="text-sm text-muted-foreground">Loading daily stats…</p>;
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="w-72">
-        <Select value={company} onValueChange={(v) => v !== null && setCompany(v)}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select company" />
-          </SelectTrigger>
-          <SelectContent>
-            {companies.map((c) => (
-              <SelectItem key={c} value={c}>
-                {c}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="w-72">
+          <Select value={company} onValueChange={(v) => v !== null && setCompany(v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select company" />
+            </SelectTrigger>
+            <SelectContent>
+              {companies.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <DateRangeFilter
+          min={rows[0]?.date ?? ""}
+          max={rows[rows.length - 1]?.date ?? ""}
+          value={range}
+          onChange={setRange}
+        />
       </div>
       <ChartContainer config={trendConfig} className="h-[360px] w-full">
         <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
@@ -111,8 +129,8 @@ export function CompanyTrends({ companies }: { companies: string[] }) {
         ))}
       </div>
       <p className="text-xs text-muted-foreground">
-        {data.length.toLocaleString()} days on record for {company}. Totals are
-        all-time sums of daily reports.
+        {data.length.toLocaleString()} days on record for {company} in the
+        selected range. Totals are sums over the selection.
       </p>
     </div>
   );

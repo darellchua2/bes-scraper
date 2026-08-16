@@ -1,6 +1,21 @@
 "use client";
 
-import { Area, AreaChart, Bar, BarChart, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
+import { useMemo } from "react";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import {
   ChartContainer,
   ChartLegend,
@@ -9,7 +24,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import type { MonthCount, NameCount } from "@/lib/queries";
+import type { MonthCount, MonthlyStatusCount, NameCount } from "@/lib/queries";
 
 const monthConfig = {
   count: { label: "Permits", color: "var(--chart-1)" },
@@ -77,5 +92,54 @@ export function PermitsByStatusChart({ data }: { data: NameCount[] }) {
         <ChartLegend content={<ChartLegendContent nameKey="name" />} />
       </PieChart>
     </ChartContainer>
+  );
+}
+
+/** Deterministic, distinguishable series colours (golden-angle hue steps). */
+function seriesColor(index: number): string {
+  return `hsl(${Math.round(index * 137.508) % 360} 70% 45%)`;
+}
+
+/**
+ * Stacked bar chart of historical permit counts per month, segmented by
+ * status. Plain recharts (no ChartContainer): status names contain
+ * parentheses, which break the generated `--color-*` CSS variable keys.
+ *
+ * @param props.data - (month, status, count) rows from /data/monthly-status
+ */
+export function PermitsByMonthStatusChart({ data }: { data: MonthlyStatusCount[] }) {
+  const { points, statuses } = useMemo(() => {
+    const byMonth = new Map<string, Record<string, number | string>>();
+    const seen = new Set<string>();
+    for (const r of data) {
+      seen.add(r.status);
+      let p = byMonth.get(r.month);
+      if (!p) {
+        p = { month: r.month };
+        byMonth.set(r.month, p);
+      }
+      p[r.status] = ((p[r.status] as number) ?? 0) + r.count;
+    }
+    return {
+      points: [...byMonth.values()].sort((a, b) => String(a.month).localeCompare(String(b.month))),
+      statuses: [...seen].sort(),
+    };
+  }, [data]);
+
+  return (
+    <div className="h-[380px] w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={points} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+          <CartesianGrid vertical={false} />
+          <XAxis dataKey="month" fontSize={11} interval="preserveStartEnd" tickLine={false} />
+          <YAxis allowDecimals={false} width={44} fontSize={11} tickLine={false} />
+          <Tooltip />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          {statuses.map((s, i) => (
+            <Bar key={s} dataKey={s} stackId="a" fill={seriesColor(i)} />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 }

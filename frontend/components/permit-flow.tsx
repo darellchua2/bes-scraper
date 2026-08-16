@@ -15,7 +15,17 @@ export function PermitFlow({ definition }: { definition: string }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    mermaid.initialize({ startOnLoad: false, theme: "neutral" });
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: "base",
+      themeVariables: {
+        primaryColor: "#dbeafe",
+        primaryBorderColor: "#2563eb",
+        primaryTextColor: "#1e293b",
+        lineColor: "#64748b",
+        tertiaryColor: "#fee2e2",
+      },
+    });
     const id = `permit-flow-${++renderCounter}`;
     mermaid
       .render(id, definition)

@@ -100,3 +100,21 @@ CREATE TABLE IF NOT EXISTS monthly_permit_status (
     count      int  NOT NULL,
     PRIMARY KEY (stat_month, status)
 );
+
+-- Full PTW register rows from the monthly "PTW Report" exports
+-- (downloads/ptwreports/YYYY-MM.xlsx) — one row per permit, keyed by the
+-- permit's start month (the report's own windowing).
+CREATE TABLE IF NOT EXISTS permit_register (
+    stat_month      text NOT NULL,        -- 'YYYY-MM' (report month)
+    serial_no       text NOT NULL,        -- BES apply_id (joins permits.apply_id for current-window permits)
+    location        text,
+    work_type       text,
+    company         text,
+    start_at        timestamp,
+    end_at          timestamp,
+    approved_person text,
+    status          text NOT NULL,        -- raw BES status
+    PRIMARY KEY (stat_month, serial_no)
+);
+CREATE INDEX IF NOT EXISTS permit_register_company_idx ON permit_register (company);
+CREATE INDEX IF NOT EXISTS permit_register_status_idx ON permit_register (status);

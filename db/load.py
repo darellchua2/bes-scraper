@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_URL = "postgres://bes:bes@localhost:5435/bes"
 
 DT_FULL = "%d %b %Y %H:%M:%S"   # 03 Aug 2026 09:14:48
+DT_MIN = "%d %b %Y %H:%M"       # 31 May 2022 02:00 (register reports)
 DT_DATE = "%d %b %Y"            # 05 Jan 2026
 
 
@@ -29,7 +30,7 @@ def parse_ts(value: str | None) -> datetime | None:
     """Parse a BES datetime string; return None when missing or unparseable."""
     if not value:
         return None
-    for fmt in (DT_FULL, DT_DATE):
+    for fmt in (DT_FULL, DT_MIN, DT_DATE):
         try:
             return datetime.strptime(value, fmt)
         except ValueError:
@@ -233,6 +234,41 @@ def load_monthly_permit_status(cur) -> int:
     return len(rows)
 
 
+def load_permit_register(cur) -> int:
+    """Load full register rows from downloads/ptwreports/*.xlsx into permit_register.
+
+    Register layout: title row, two header rows, data from row 4. Columns:
+    S/N, location, work type, company, serial no, start, end, approver, status.
+    Rows without a serial number or status, and duplicate serials within a
+    month, are skipped.
+    """
+    from openpyxl import load_workbook
+
+    def cell(value) -> str | None:
+        s = str(value).strip() if value is not None else ""
+        return s or None
+
+    seen: set[tuple[str, str]] = set()
+    batch = []
+    for path in sorted((ROOT / "downloads" / "ptwreports").glob("*.xlsx")):
+        month = path.stem
+        wb = load_workbook(path, read_only=True)
+        for row in wb.active.iter_rows(min_row=4, values_only=True):
+            serial, status = cell(row[4]), cell(row[8])
+            if not serial or not status or (month, serial) in seen:
+                continue
+            seen.add((month, serial))
+            batch.append((
+                month, serial, cell(row[1]), cell(row[2]), cell(row[3]),
+                parse_ts(cell(row[5])), parse_ts(cell(row[6])), cell(row[7]), status,
+            ))
+        wb.close()
+    cur.executemany(
+        "INSERT INTO permit_register VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)", batch
+    )
+    return len(batch)
+
+
 def main() -> None:
     """Apply schema, truncate, reload every table, and print loaded counts."""
     load_dotenv(ROOT / ".env")
@@ -242,7 +278,8 @@ def main() -> None:
             cur.execute((ROOT / "db" / "schema.sql").read_text())
             cur.execute(
                 "TRUNCATE permits, staff, equipment, company_documents,"
-                " monthly_stats, company_daily_stats, monthly_permit_status CASCADE"
+                " monthly_stats, company_daily_stats, monthly_permit_status,"
+                " permit_register CASCADE"
             )
             counts = {
                 "permits": load_permits(cur),
@@ -252,6 +289,7 @@ def main() -> None:
                 "monthly_stats": load_monthly_stats(cur),
                 "company_daily_stats": load_company_daily_stats(cur),
                 "monthly_permit_status": load_monthly_permit_status(cur),
+                "permit_register": load_permit_register(cur),
             }
             counts["approval_steps"], counts["permit_checklists"], counts["permit_attachments"] = (
                 load_approval_trail(cur)

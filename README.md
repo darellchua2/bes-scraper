@@ -72,6 +72,31 @@ Current coverage: PTW PDFs + metadata (2964), workflow trails (15 254 steps),
 checklist references (6541), attachment references (16 246), and the staff /
 equipment / company-docs registers.
 
+## Dashboard
+
+Static Next.js dashboard over the scraped data, in `frontend/` (deploys
+nowhere — built and viewed locally).
+
+```bash
+# one-time: Postgres container (host port 5435) + python db extra
+docker run -d --name bes-postgres -p 5435:5432 \
+  -e POSTGRES_USER=bes -e POSTGRES_PASSWORD=bes -e POSTGRES_DB=bes \
+  -v bes-pgdata:/var/lib/postgresql/data postgres:16-alpine
+.venv/bin/pip install -e ".[db]"
+cd frontend && npm install && cd ..
+
+# every refresh: reload the DB from JSONL + rebuild the static site
+scripts/build-dashboard.sh
+
+# view
+cd frontend/out && python3 -m http.server 8000
+```
+
+Pages: Overview (KPIs + charts), Permit lifecycle (stage flow diagram with
+explainers), Companies (daily activity trends), Staff and Equipment registers
+(filterable tables). Schema: `db/schema.sql`; loader: `db/load.py`
+(idempotent, truncate + reload). Model rationale: `docs/consolidated-model.md`.
+
 ## Configuration (env vars)
 
 | Var | Default | Purpose |

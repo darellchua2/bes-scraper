@@ -162,3 +162,95 @@ export async function getStageStatusCounts(): Promise<StageStatusCount[]> {
      GROUP BY 1, 2 ORDER BY 1, 2`,
   );
 }
+
+/** One company's activity counters for one day. */
+export interface CompanyDailyRow {
+  date: string;
+  company: string;
+  ptw: number;
+  tbm: number;
+  checklist: number;
+  inspection: number;
+  meeting: number;
+  training: number;
+  ra: number;
+  incident: number;
+}
+
+/**
+ * Fetch every company_daily_stats row (main activity counters only) for
+ * build-time baking into a static JSON payload for the trends page.
+ *
+ * @returns one row per (stat_date, company), ascending by date
+ */
+export async function getCompanyDailyStats(): Promise<CompanyDailyRow[]> {
+  return query<CompanyDailyRow>(
+    `SELECT stat_date::text AS date, company,
+            ptw_cnt AS ptw, tbm_cnt AS tbm, checklist_cnt AS checklist,
+            inspection_cnt AS inspection, meeting_cnt AS meeting,
+            training_cnt AS training, ra_cnt AS ra, incident_cnt AS incident
+     FROM company_daily_stats
+     ORDER BY stat_date`,
+  );
+}
+
+/**
+ * List distinct company names that have daily stats, alphabetically.
+ *
+ * @returns one row per company
+ */
+export async function getDailyStatsCompanies(): Promise<string[]> {
+  const rows = await query<{ company: string }>(
+    `SELECT DISTINCT company FROM company_daily_stats ORDER BY company`,
+  );
+  return rows.map((r) => r.company);
+}
+
+/** One staff register row (constants sn/status dropped per consolidated model). */
+export interface StaffRow {
+  staff_id: number;
+  full_name: string;
+  badge_no: string | null;
+  mobile_no: string | null;
+  nric_fin: string | null;
+  id_type: string | null;
+  nationality: string | null;
+  designation: string | null;
+  secondment: boolean;
+  created_on: string | null;
+}
+
+/**
+ * Fetch the full staff register for the static JSON endpoint.
+ *
+ * @returns all staff rows ordered by name
+ */
+export async function getStaff(): Promise<StaffRow[]> {
+  return query<StaffRow>(
+    `SELECT staff_id, full_name, badge_no, mobile_no, nric_fin, id_type,
+            nationality, designation, secondment, created_on::text AS created_on
+     FROM staff ORDER BY full_name`,
+  );
+}
+
+/** One equipment register row (constant status dropped per consolidated model). */
+export interface EquipmentRow {
+  equipment_id: number;
+  equipment_type: string;
+  registration_no: string | null;
+  equipment_name: string;
+  created_on: string | null;
+}
+
+/**
+ * Fetch the full equipment register for the static JSON endpoint.
+ *
+ * @returns all equipment rows ordered by type then name
+ */
+export async function getEquipment(): Promise<EquipmentRow[]> {
+  return query<EquipmentRow>(
+    `SELECT equipment_id, equipment_type, registration_no, equipment_name,
+            created_on::text AS created_on
+     FROM equipment ORDER BY equipment_type, equipment_name`,
+  );
+}

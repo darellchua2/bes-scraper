@@ -5,5 +5,5 @@ __pycache__/
 .opencode/
 .cron.log
 .venv/
-data/
+/data/
 .codegraph/

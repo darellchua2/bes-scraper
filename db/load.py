@@ -208,6 +208,31 @@ def load_company_daily_stats(cur) -> int:
     return len(rows)
 
 
+def load_monthly_permit_status(cur) -> int:
+    """Aggregate downloads/ptwreports/*.xlsx registers into monthly_permit_status.
+
+    Register layout: title row, two header rows, data from row 4;
+    status lives in column index 8. Rows without an S/N or status are skipped.
+    """
+    from openpyxl import load_workbook
+
+    rows: dict[tuple[str, str], int] = {}
+    for path in sorted((ROOT / "downloads" / "ptwreports").glob("*.xlsx")):
+        month = path.stem
+        wb = load_workbook(path, read_only=True)
+        for row in wb.active.iter_rows(min_row=4, values_only=True):
+            if row[0] is None or not row[8]:
+                continue
+            key = (month, str(row[8]).strip())
+            rows[key] = rows.get(key, 0) + 1
+        wb.close()
+    cur.executemany(
+        "INSERT INTO monthly_permit_status VALUES (%s,%s,%s)",
+        [(m, s, n) for (m, s), n in sorted(rows.items())],
+    )
+    return len(rows)
+
+
 def main() -> None:
     """Apply schema, truncate, reload every table, and print loaded counts."""
     load_dotenv(ROOT / ".env")
@@ -217,7 +242,7 @@ def main() -> None:
             cur.execute((ROOT / "db" / "schema.sql").read_text())
             cur.execute(
                 "TRUNCATE permits, staff, equipment, company_documents,"
-                " monthly_stats, company_daily_stats CASCADE"
+                " monthly_stats, company_daily_stats, monthly_permit_status CASCADE"
             )
             counts = {
                 "permits": load_permits(cur),
@@ -226,6 +251,7 @@ def main() -> None:
                 "company_documents": load_company_documents(cur),
                 "monthly_stats": load_monthly_stats(cur),
                 "company_daily_stats": load_company_daily_stats(cur),
+                "monthly_permit_status": load_monthly_permit_status(cur),
             }
             counts["approval_steps"], counts["permit_checklists"], counts["permit_attachments"] = (
                 load_approval_trail(cur)

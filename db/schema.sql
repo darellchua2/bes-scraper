@@ -90,3 +90,13 @@ CREATE TABLE IF NOT EXISTS company_daily_stats (
     PRIMARY KEY (stat_date, company)
 );
 CREATE INDEX IF NOT EXISTS company_daily_stats_company_idx ON company_daily_stats (company);
+
+-- Historical permit register: status counts per month, aggregated from the
+-- BES "PTW Report" monthly exports (downloads/ptwreports/YYYY-MM.xlsx).
+-- Keyed by permit start month (the report's own windowing), not applied_on.
+CREATE TABLE IF NOT EXISTS monthly_permit_status (
+    stat_month text NOT NULL,             -- 'YYYY-MM'
+    status     text NOT NULL,             -- raw BES status
+    count      int  NOT NULL,
+    PRIMARY KEY (stat_month, status)
+);

@@ -358,3 +358,101 @@ export async function getMonthlyTypeStatus(): Promise<MonthlyTypeStatusCount[]> 
      ORDER BY stat_month, work_type, status`,
   );
 }
+
+/** One bullet of the home-page insights list (text fully derived from data). */
+export type Insight = string;
+
+const CLOSED_STATUSES = ["Closed", "Closure Accepted(Approver)", "Closure Assessed"];
+
+/** Format part/whole as a one-decimal percentage string. */
+function pct(part: number, whole: number): string {
+  return whole ? ((part / whole) * 100).toFixed(1) : "0.0";
+}
+
+/**
+ * Derive the home-page "Key insights" lines from the database at build time.
+ * Every number comes from SQL — nothing is hardcoded.
+ *
+ * @returns insight lines ready to render as list items
+ */
+export async function getInsights(): Promise<Insight[]> {
+  const [live, register, span, peak, topCompany, churn] = await Promise.all([
+    query<{ status: string; count: number }>(
+      `SELECT status, count(*)::int AS count FROM permits GROUP BY status`,
+    ),
+    query<{ total: number; done: number; no_approver: number }>(
+      `SELECT count(*)::int AS total,
+              count(*) FILTER (WHERE status = ANY($1))::int AS done,
+              count(*) FILTER (WHERE approved_person IS NULL)::int AS no_approver
+       FROM permit_register`,
+      [CLOSED_STATUSES],
+    ),
+    query<{ from_m: string; to_m: string; months: number }>(
+      `SELECT min(stat_month) AS from_m, max(stat_month) AS to_m,
+              count(DISTINCT stat_month)::int AS months
+       FROM monthly_permit_status`,
+    ),
+    query<{ stat_month: string; n: number }>(
+      `SELECT stat_month, sum(count)::int AS n FROM monthly_permit_status
+       GROUP BY stat_month ORDER BY n DESC LIMIT 1`,
+    ),
+    query<{ company: string; n: number }>(
+      `SELECT company, count(*)::int AS n FROM permit_register
+       GROUP BY company ORDER BY n DESC LIMIT 1`,
+    ),
+    query<{ permits: number; avg_steps: number; resubmitted: number }>(
+      `WITH s AS (SELECT apply_id, count(*) AS n FROM approval_steps GROUP BY apply_id)
+       SELECT count(*)::int AS permits, avg(n)::float8 AS avg_steps,
+              count(*) FILTER (WHERE n > 5)::int AS resubmitted FROM s`,
+    ),
+  ]);
+
+  const liveTotal = live.reduce((a, r) => a + r.count, 0);
+  const liveOf = (name: string) => live.find((r) => r.status === name)?.count ?? 0;
+  const liveRejected = live
+    .filter((r) => r.status.startsWith("Rejected"))
+    .reduce((a, r) => a + r.count, 0);
+  const topReject = live
+    .filter((r) => r.status.startsWith("Rejected"))
+    .sort((a, b) => b.count - a.count)[0];
+  const backlog = liveOf("Applicant - Works completion");
+  const liveClosed = liveOf("Closure Accepted(Approver)");
+  const inspector = liveOf("Inspector");
+  const reg = register[0];
+  const trail = churn[0];
+
+  const n = (x: number) => x.toLocaleString("en-SG");
+  const insights: Insight[] = [];
+
+  if (topReject) {
+    insights.push(
+      `Top rejection gate is ${topReject.status.replace("Rejected(", "").replace(")", "")} ` +
+        `(${n(topReject.count)} permits, ${pct(topReject.count, liveRejected)}% of all rejections in the live window).`,
+    );
+  }
+  insights.push(
+    `Closure is the bottleneck: ${pct(backlog, liveTotal)}% of live permits (${n(backlog)} of ${n(liveTotal)}) ` +
+      `sit at "Applicant - Works completion", while only ${n(liveClosed)} have been closure-accepted. ` +
+      `Historically ${pct(reg.done, reg.total)}% of permits (${n(reg.done)} of ${n(reg.total)}) reach a closed state.`,
+  );
+  insights.push(
+    `${n(inspector)} permits carry status "Inspector" — a gate BES never records in approval trails ` +
+      `(the monthly reports' "Assessed 2" row).`,
+  );
+  insights.push(
+    `Average approval trail is ${trail.avg_steps.toFixed(1)} steps vs the 5-step happy path; ` +
+      `${n(trail.resubmitted)} permits (${pct(trail.resubmitted, trail.permits)}%) needed more than 5 steps (rejection + resubmission).`,
+  );
+  insights.push(
+    `The register spans ${span[0].months} months (${span[0].from_m} → ${span[0].to_m}); ` +
+      `peak month is ${peak[0].stat_month} with ${n(peak[0].n)} permits.`,
+  );
+  insights.push(
+    `Most active company: ${topCompany[0].company} with ${n(topCompany[0].n)} permits ` +
+      `(${pct(topCompany[0].n, reg.total)}% of all-time).`,
+  );
+  insights.push(
+    `Data hygiene: ${pct(reg.no_approver, reg.total)}% of register rows (${n(reg.no_approver)}) have no Approved Person recorded.`,
+  );
+  return insights;
+}

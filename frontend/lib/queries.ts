@@ -335,3 +335,26 @@ export async function getMonthlyPermitStatus(): Promise<MonthlyStatusCount[]> {
      ORDER BY stat_month, status`,
   );
 }
+
+/** One (month, work type, status) row from the historical permit register. */
+export interface MonthlyTypeStatusCount {
+  month: string;
+  type: string;
+  status: string;
+  count: number;
+}
+
+/**
+ * Historical permit counts per month, work type, and status, aggregated
+ * straight from permit_register (keyed by permit start month).
+ *
+ * @returns rows ordered by month, type, then status
+ */
+export async function getMonthlyTypeStatus(): Promise<MonthlyTypeStatusCount[]> {
+  return query<MonthlyTypeStatusCount>(
+    `SELECT stat_month AS month, work_type AS type, status, count(*)::int AS count
+     FROM permit_register
+     GROUP BY stat_month, work_type, status
+     ORDER BY stat_month, work_type, status`,
+  );
+}

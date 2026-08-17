@@ -1,4 +1,4 @@
-import type { MonthlyStatusCount, StageStatusCount, StageTransition } from "./queries";
+import type { MonthlyTypeStatusCount, StageStatusCount, StageTransition } from "./queries";
 
 /** Hidden inspection gate — "Assessed 2" in BES monthly safety reports. */
 export const INSPECTOR_STAGE = "Assessed 2 (Inspector)";
@@ -90,6 +90,8 @@ function nodeId(stage: string): string {
  * Rejected terminal node. Trails never record Inspector steps, so its edges
  * are derived: Assessed→Inspector = observed Assessed→Acknowledge transitions
  * + permits currently at Inspector status + Rejected(Inspector) permits.
+ * Node labels show occupancy ("here") plus the cumulative "reached" count —
+ * permits that passed through the stage, including closures and terminals.
  *
  * @param transitions - observed consecutive-stage transition counts
  * @param stageStatus - (stage, status) counts locating permits in the lifecycle
@@ -138,11 +140,33 @@ export function buildFlowDefinition(
 
   const lines: string[] = ["flowchart LR"];
 
+  // Per-stage occupancy (Inspector uses its status-derived bucket), plus the
+  // rejected/revoked permits attributed to the stage they reached.
+  const occupancy = new Map<string, number>();
   for (const stage of STAGES) {
-    const here = stage === INSPECTOR_STAGE ? inspectorHere : (atStage.get(stage) ?? 0);
+    occupancy.set(stage, stage === INSPECTOR_STAGE ? inspectorHere : (atStage.get(stage) ?? 0));
+  }
+  const rejectedAtGate = new Map<string, number>();
+  for (const [status, gate] of Object.entries(REJECT_GATE)) {
+    const c = rejectedByStatus.get(status) ?? 0;
+    rejectedAtGate.set(gate, (rejectedAtGate.get(gate) ?? 0) + c);
+  }
+  // Cumulative "reached": permits sitting at or beyond each stage — closures
+  // and terminals count toward every upstream stage they passed through.
+  const reached = new Map<string, number>();
+  let running = 0;
+  for (let i = STAGES.length - 1; i >= 0; i--) {
+    const s = STAGES[i];
+    running +=
+      (occupancy.get(s) ?? 0) + (rejectedAtGate.get(s) ?? 0) + (revokedAt.get(s) ?? 0);
+    reached.set(s, running);
+  }
+
+  for (const stage of STAGES) {
+    const here = occupancy.get(stage) ?? 0;
     const persona = ROLE_MODEL[stage] ?? stage;
     lines.push(
-      `  ${nodeId(stage)}["${stage}<br/><small>${persona} · ${here.toLocaleString()} here</small>"]`,
+      `  ${nodeId(stage)}["${stage}<br/><small>${persona} · ${here.toLocaleString()} here · ${(reached.get(stage) ?? 0).toLocaleString()} reached</small>"]`,
     );
   }
   for (const status of Object.keys(REJECT_GATE)) {
@@ -273,14 +297,19 @@ export interface FlowResult {
  * Compute the flow for one register month (no trail data): statuses are
  * translated to the live vocabulary and bucketed onto occupancy stages;
  * chain edges render structurally (unlabeled).
+ *
+ * @param rows - (month, work type, status, count) register aggregates
+ * @param month - 'YYYY-MM' register month
+ * @param workType - restrict to one work type; empty = all types
  */
 export function computeMonthlyFlow(
-  rows: MonthlyStatusCount[],
+  rows: MonthlyTypeStatusCount[],
   month: string,
+  workType = "",
 ): FlowResult {
   const stageStatus: StageStatusCount[] = [];
   for (const r of rows) {
-    if (r.month !== month) continue;
+    if (r.month !== month || (workType && r.type !== workType)) continue;
     const t = REGISTER_TRANSLATE[r.status] ?? { stage: "Other", status: r.status };
     stageStatus.push({ stage: t.stage, status: t.status, count: r.count });
   }
@@ -295,6 +324,7 @@ export interface PermitLite {
   apply_id: number;
   applied_on: string; // YYYY-MM-DD
   status: string;
+  ptw_type: string;
 }
 
 /** Minimal approval-step shape for client-side flow computation. */
@@ -328,17 +358,19 @@ export function canonStage(role: string): string {
 
 /**
  * Compute the mermaid flow definition client-side from raw permits + steps,
- * restricted to permits applied within [from, to] (inclusive YYYY-MM-DD).
- * Mirrors getStageTransitions/getStageStatusCounts in lib/queries.ts.
+ * restricted to permits applied within [from, to] (inclusive YYYY-MM-DD) and
+ * optionally to one permit type. Mirrors the server-side stage queries.
  */
 export function computeFlow(
   permits: PermitLite[],
   steps: StepLite[],
   from: string,
   to: string,
+  ptwType = "",
 ): FlowResult {
   const statusByPermit = new Map<number, string>();
   for (const p of permits) {
+    if (ptwType && p.ptw_type !== ptwType) continue;
     if (p.applied_on >= from && p.applied_on <= to) {
       statusByPermit.set(p.apply_id, p.status);
     }

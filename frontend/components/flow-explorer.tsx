@@ -17,7 +17,7 @@ import {
   type PermitLite,
   type StepLite,
 } from "@/lib/flow";
-import type { MonthlyStatusCount } from "@/lib/queries";
+import type { MonthlyTypeStatusCount } from "@/lib/queries";
 
 const MONTH_NAMES = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -38,9 +38,10 @@ function monthLabel(month: string): string {
 export function FlowExplorer() {
   const [permits, setPermits] = useState<PermitLite[] | null>(null);
   const [steps, setSteps] = useState<StepLite[] | null>(null);
-  const [monthly, setMonthly] = useState<MonthlyStatusCount[] | null>(null);
+  const [monthly, setMonthly] = useState<MonthlyTypeStatusCount[] | null>(null);
   const [range, setRange] = useState<DateRange | null>(null);
   const [month, setMonth] = useState(""); // "" = live trail window
+  const [ptype, setPtype] = useState(""); // "" = all permit types
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -53,9 +54,9 @@ export function FlowExplorer() {
         if (!r.ok) throw new Error(`steps HTTP ${r.status}`);
         return r.json() as Promise<StepLite[]>;
       }),
-      fetch("/data/monthly-status").then((r) => {
-        if (!r.ok) throw new Error(`monthly-status HTTP ${r.status}`);
-        return r.json() as Promise<MonthlyStatusCount[]>;
+      fetch("/data/monthly-type-status").then((r) => {
+        if (!r.ok) throw new Error(`monthly-type-status HTTP ${r.status}`);
+        return r.json() as Promise<MonthlyTypeStatusCount[]>;
       }),
     ])
       .then(([p, s, m]) => {
@@ -72,11 +73,22 @@ export function FlowExplorer() {
     [monthly],
   );
 
+  /** Permit types present in the active dataset (register month or live window). */
+  const typeOptions = useMemo(() => {
+    if (month && monthly) {
+      return [...new Set(monthly.filter((r) => r.month === month).map((r) => r.type))].sort();
+    }
+    return [...new Set((permits ?? []).map((p) => p.ptw_type))].sort();
+  }, [month, monthly, permits]);
+
+  // Reset the type filter when it doesn't exist in the newly selected dataset.
+  const effType = typeOptions.includes(ptype) ? ptype : "";
+
   const result: FlowResult | null = useMemo(() => {
     if (!permits || !steps || !range) return null;
-    if (month && monthly) return computeMonthlyFlow(monthly, month);
-    return computeFlow(permits, steps, range.from, range.to);
-  }, [permits, steps, monthly, range, month]);
+    if (month && monthly) return computeMonthlyFlow(monthly, month, effType);
+    return computeFlow(permits, steps, range.from, range.to, effType);
+  }, [permits, steps, monthly, range, month, effType]);
 
   if (error) return <pre className="text-sm text-red-600">{error}</pre>;
   if (!result || !range || !permits) {
@@ -101,6 +113,21 @@ export function FlowExplorer() {
               {months.map((m) => (
                 <SelectItem key={m} value={m}>
                   {monthLabel(m)} (register)
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="w-56">
+          <Select value={effType} onValueChange={(v) => setPtype(v ?? "")}>
+            <SelectTrigger>
+              <SelectValue placeholder="All permit types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All permit types</SelectItem>
+              {typeOptions.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
                 </SelectItem>
               ))}
             </SelectContent>

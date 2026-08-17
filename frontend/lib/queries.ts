@@ -456,3 +456,25 @@ export async function getInsights(): Promise<Insight[]> {
   );
   return insights;
 }
+
+export interface CompanyManpowerRow {
+  company: string;
+  manpower: number;
+  unique_workers: number;
+}
+
+/**
+ * Declared manpower per company: Member(s) rows parsed from the PTW PDFs.
+ * PDFs exist only for the live permits window (no history).
+ */
+export async function getCompanyManpower(): Promise<CompanyManpowerRow[]> {
+  return query<CompanyManpowerRow>(`
+    SELECT p.company,
+           count(*)::int                    AS manpower,
+           count(DISTINCT pm.id_number)::int AS unique_workers
+    FROM permit_members pm
+    JOIN permits p ON p.apply_id = pm.apply_id
+    GROUP BY p.company
+    ORDER BY manpower DESC
+  `);
+}

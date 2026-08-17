@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FlowExplorer } from "@/components/flow-explorer";
 import { HowToReadTip } from "@/components/how-to-read-tip";
+import { ManpowerChart } from "@/components/manpower-chart";
 
 /**
  * Permit lifecycle page: node-edge diagram of the approval chain with
@@ -30,6 +31,19 @@ export default function FlowPage() {
         </CardHeader>
         <CardContent>
           <FlowExplorer />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Declared manpower by company</CardTitle>
+          <CardDescription>
+            Member(s) declared on each PTW, parsed from the permit PDFs. Live
+            window only — historical months have no PDFs.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ManpowerChart />
         </CardContent>
       </Card>
     </main>

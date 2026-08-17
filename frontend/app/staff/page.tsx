@@ -22,6 +22,15 @@ const COLUMNS: FilterColumn[] = [
   { key: "created_on", label: "Registered" },
 ];
 
+const EXPIRING_COLUMNS: FilterColumn[] = [
+  { key: "worker", label: "Worker" },
+  { key: "doc_type", label: "Type" },
+  { key: "document_no", label: "Document No." },
+  { key: "issue_date", label: "Issued" },
+  { key: "expiry_date", label: "Expiry" },
+  { key: "expired", label: "Expired?" },
+];
+
 /** Staff register page: filterable table fed by the static /data/staff JSON. */
 export default async function StaffPage() {
   const [coverage, insights] = await Promise.all([getStaffCoverage(), getStaffInsights()]);
@@ -46,6 +55,22 @@ export default async function StaffPage() {
             url="/data/staff"
             columns={COLUMNS}
             placeholder="Filter by name, designation, badge…"
+          />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Expiring documents</CardTitle>
+          <CardDescription>
+            Staff certificates and documents that have expired or expire within
+            90 days, soonest first.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FilterTable
+            url="/data/staff-expiring"
+            columns={EXPIRING_COLUMNS}
+            placeholder="Filter by worker, type, document…"
           />
         </CardContent>
       </Card>

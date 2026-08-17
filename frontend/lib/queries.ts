@@ -620,7 +620,7 @@ export async function getCompanyInsights(): Promise<Insight[]> {
  * Staff-register insight lines, derived from the staff table at build time.
  */
 export async function getStaffInsights(): Promise<Insight[]> {
-  const [span, secondment, nationality, designation, recent] = await Promise.all([
+  const [span, secondment, nationality, designation, recent, expiry] = await Promise.all([
     query<{ from: string; to: string }>(
       `SELECT min(created_on)::text AS "from", max(created_on)::text AS "to" FROM staff`,
     ),
@@ -642,6 +642,12 @@ export async function getStaffInsights(): Promise<Insight[]> {
       `SELECT count(*)::int AS n FROM staff
        WHERE created_on > (SELECT max(created_on) FROM staff) - interval '1 year'`,
     ),
+    query<{ expired: number; expiring: number }>(
+      `SELECT count(*) FILTER (WHERE expiry_date < CURRENT_DATE)::int AS expired,
+              count(*) FILTER (WHERE expiry_date >= CURRENT_DATE
+                 AND expiry_date <= CURRENT_DATE + interval '90 days')::int AS expiring
+       FROM staff_documents WHERE expiry_date IS NOT NULL`,
+    ),
   ]);
 
   const total = secondment[0]?.total ?? 0;
@@ -651,6 +657,7 @@ export async function getStaffInsights(): Promise<Insight[]> {
   if (nationality[0]) lines.push(`Workforce spans ${nationality[0].total} nationalities; the largest group is ${nationality[0].nationality} (${nationality[0].n.toLocaleString("en-SG")} workers).`);
   if (designation[0]) lines.push(`Most common designation: ${designation[0].designation} (${designation[0].n.toLocaleString("en-SG")} workers).`);
   if (recent[0]) lines.push(`${recent[0].n.toLocaleString("en-SG")} workers were registered in the last 12 months.`);
+  if (expiry[0]) lines.push(`${expiry[0].expired.toLocaleString("en-SG")} tracked documents have expired and ${expiry[0].expiring.toLocaleString("en-SG")} expire within 90 days (listed below).`);
   return lines;
 }
 
@@ -685,4 +692,31 @@ export async function getEquipmentInsights(): Promise<Insight[]> {
   if (registered[0] && t) lines.push(`${pct(registered[0].with_reg, t.total)} of items have a registration number on file.`);
   lines.push("BES tracks no expiry dates for equipment — certificate/passport expiry lives on the staff document attachments instead.");
   return lines;
+}
+
+/** One staff document that is expired or expires within 90 days. */
+export interface ExpiringDocRow {
+  worker: string;
+  doc_type: string | null;
+  document_no: string | null;
+  issue_date: string | null;
+  expiry_date: string | null;
+  expired: boolean;
+}
+
+/**
+ * Staff documents expired or expiring within 90 days of the build date,
+ * joined to worker names for the register view.
+ */
+export async function getExpiringStaffDocuments(): Promise<ExpiringDocRow[]> {
+  return query<ExpiringDocRow>(
+    `SELECT s.full_name AS worker, d.doc_type, d.document_no,
+            d.issue_date::text AS issue_date, d.expiry_date::text AS expiry_date,
+            (d.expiry_date < CURRENT_DATE) AS expired
+     FROM staff_documents d JOIN staff s ON s.staff_id = d.staff_id
+     WHERE d.expiry_date IS NOT NULL
+       AND d.expiry_date >= DATE '1990-01-01'  -- ponytail: pre-1990 dates are BES "unknown" sentinels (1900, 1950)
+       AND d.expiry_date <= CURRENT_DATE + interval '90 days'
+     ORDER BY d.expiry_date`,
+  );
 }

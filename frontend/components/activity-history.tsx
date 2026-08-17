@@ -73,9 +73,19 @@ export function ActivityHistory() {
       <DateRangeFilter min={min} max={max} value={range} onChange={setRange} />
       <div className="flex flex-col gap-2">
         <h3 className="text-sm font-medium">Permits per month by status</h3>
+        <p className="text-muted-foreground text-xs">
+          Register months {range.from.slice(0, 7)} → {range.to.slice(0, 7)} (keyed by
+          permit start month)
+        </p>
         <PermitsByMonthStatusChart data={filteredMonthly} />
       </div>
-      <CompanyComparison rows={filteredDaily} />
+      <div className="flex flex-col gap-2">
+        <h3 className="text-sm font-medium">Company activity comparison</h3>
+        <p className="text-muted-foreground text-xs">
+          Daily-report counts {range.from} → {range.to}
+        </p>
+        <CompanyComparison rows={filteredDaily} />
+      </div>
     </div>
   );
 }

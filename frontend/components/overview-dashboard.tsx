@@ -130,6 +130,9 @@ export function OverviewDashboard({ totals }: { totals: RegisterTotals }) {
           <Card>
             <CardHeader>
               <CardTitle>Permits by type</CardTitle>
+              <CardDescription>
+                Permits applied {range.from} → {range.to}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <PermitsByTypeChart data={agg.types} />
@@ -138,6 +141,9 @@ export function OverviewDashboard({ totals }: { totals: RegisterTotals }) {
           <Card>
             <CardHeader>
               <CardTitle>Permits by status</CardTitle>
+              <CardDescription>
+                Permits applied {range.from} → {range.to}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <PermitsByStatusChart data={agg.statuses} />

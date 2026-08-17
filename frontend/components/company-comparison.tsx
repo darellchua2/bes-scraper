@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from "react";
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
   Legend,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -110,7 +110,7 @@ export function CompanyComparison({ rows }: { rows: CompanyDailyRow[] }) {
 
       <div className="h-[420px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+          <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} />
             <XAxis dataKey="date" fontSize={11} interval="preserveStartEnd" tickLine={false} />
             <YAxis allowDecimals={false} width={44} fontSize={11} tickLine={false} />
@@ -129,17 +129,15 @@ export function CompanyComparison({ rows }: { rows: CompanyDailyRow[] }) {
               }}
             />
             {companies.map((c, i) => (
-              <Line
+              <Bar
                 key={c}
-                type="monotone"
                 dataKey={c}
-                stroke={companyColor(i)}
-                dot={false}
-                strokeWidth={1.5}
+                stackId="a"
+                fill={companyColor(i)}
                 hide={hidden.has(c)}
               />
             ))}
-          </LineChart>
+          </BarChart>
         </ResponsiveContainer>
       </div>
     </div>

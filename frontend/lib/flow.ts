@@ -1,4 +1,4 @@
-import type { StageStatusCount, StageTransition } from "./queries";
+import type { MonthlyStatusCount, StageStatusCount, StageTransition } from "./queries";
 
 /** Hidden inspection gate — "Assessed 2" in BES monthly safety reports. */
 export const INSPECTOR_STAGE = "Assessed 2 (Inspector)";
@@ -39,6 +39,42 @@ const REJECT_GATE: Record<string, string> = {
   "Rejected(Inspector)": INSPECTOR_STAGE,
   "Rejected(In Charge)": "Acknowledge",
   "Rejected(Approver)": "Approve",
+};
+
+/**
+ * Register-status → live-vocab translation for monthly mode. The register
+ * has no approval trails, so each status maps to the stage where the permit
+ * sits and (for terminals) the equivalent live status name so
+ * buildFlowDefinition's routing works unchanged. Covers all 22 observed
+ * register/live statuses; unknown ones land on the invisible "Other" stage.
+ */
+const REGISTER_TRANSLATE: Record<string, { stage: string; status: string }> = {
+  Submitted: { stage: "Applicant", status: "Submitted" },
+  Assessor: { stage: "Assessed", status: "Assessor" },
+  Assessed: { stage: "Assessed", status: "Assessed" },
+  "Assessed 2": { stage: INSPECTOR_STAGE, status: "Inspector" },
+  Inspector: { stage: INSPECTOR_STAGE, status: "Inspector" },
+  Acknowledged: { stage: "Acknowledge", status: "Acknowledged" },
+  Approved: { stage: "Approve", status: "Approved(Approver)" },
+  "Approved(Approver)": { stage: "Approve", status: "Approved(Approver)" },
+  "Applicant - Works completion": {
+    stage: "Closure Applicant",
+    status: "Applicant - Works completion",
+  },
+  "Closure Assessed": { stage: "Closure Accept", status: "Closure Assessed" },
+  Closed: { stage: "Closure Accept", status: "Closed" },
+  "Closure Accepted(Approver)": {
+    stage: "Closure Accept",
+    status: "Closure Accepted(Approver)",
+  },
+  "Assessed Rejected": { stage: "Assessed", status: "Rejected(Assessor)" },
+  "Assessed 2 Rejected": { stage: INSPECTOR_STAGE, status: "Rejected(Inspector)" },
+  "Approved Rejected": { stage: "Approve", status: "Rejected(Approver)" },
+  // ponytail: no closure-rejection gate exists in the live vocab; bucket it with approver rejects.
+  "Closure Assessed Rejected": { stage: "Closure Accept", status: "Rejected(Approver)" },
+  // ponytail: the register gives no revoked-from gate; draw the edge from Approve.
+  Revoked: { stage: "Approve", status: "Revoked" },
+  "Revoked Rejected": { stage: "Approve", status: "Revoked" },
 };
 
 /** Mermaid-safe node id for a stage name. */
@@ -86,15 +122,19 @@ export function buildFlowDefinition(
   }
 
   // Observed pairs keyed "from->to"; Assessed→Acknowledge splits via Inspector.
+  // Structural-only mode (register months have no trails): unlabeled chain.
+  const structuralOnly = transitions.length === 0;
   const pairCount = new Map<string, number>();
-  for (const t of transitions) {
-    pairCount.set(`${t.from}->${t.to}`, t.count);
+  if (!structuralOnly) {
+    for (const t of transitions) {
+      pairCount.set(`${t.from}->${t.to}`, t.count);
+    }
+    const assessedToAck = pairCount.get(`Assessed->Acknowledge`) ?? 0;
+    pairCount.delete("Assessed->Acknowledge");
+    const rejectedInspector = rejectedByStatus.get("Rejected(Inspector)") ?? 0;
+    pairCount.set(`Assessed->${INSPECTOR_STAGE}`, assessedToAck + inspectorHere + rejectedInspector);
+    pairCount.set(`${INSPECTOR_STAGE}->Acknowledge`, assessedToAck);
   }
-  const assessedToAck = pairCount.get(`Assessed->Acknowledge`) ?? 0;
-  pairCount.delete("Assessed->Acknowledge");
-  const rejectedInspector = rejectedByStatus.get("Rejected(Inspector)") ?? 0;
-  pairCount.set(`Assessed->${INSPECTOR_STAGE}`, assessedToAck + inspectorHere + rejectedInspector);
-  pairCount.set(`${INSPECTOR_STAGE}->Acknowledge`, assessedToAck);
 
   const lines: string[] = ["flowchart LR"];
 
@@ -116,7 +156,9 @@ export function buildFlowDefinition(
   for (let i = 0; i < STAGES.length - 1; i++) {
     const key = `${STAGES[i]}->${STAGES[i + 1]}`;
     const count = pairCount.get(key);
-    if (count) {
+    if (structuralOnly) {
+      lines.push(`  ${nodeId(STAGES[i])} --> ${nodeId(STAGES[i + 1])}`);
+    } else if (count) {
       lines.push(`  ${nodeId(STAGES[i])} -->|${count.toLocaleString()}| ${nodeId(STAGES[i + 1])}`);
       emitted.add(key);
     }
@@ -190,6 +232,64 @@ export const STAGE_EXPLANATIONS: { stage: string; persona: string; text: string 
   },
 ];
 
+/** Headline statistics for the currently displayed flow view. */
+export interface FlowInsights {
+  total: number;
+  rejected: number;
+  revoked: number;
+  done: number;
+  topReject: [string, number] | null;
+}
+
+/** Derive headline statistics from (stage, status, count) buckets. */
+export function flowInsights(stageStatus: StageStatusCount[]): FlowInsights {
+  let total = 0;
+  let rejected = 0;
+  let revoked = 0;
+  let done = 0;
+  const byStatus = new Map<string, number>();
+  for (const r of stageStatus) {
+    total += r.count;
+    if (r.status.startsWith("Rejected")) {
+      rejected += r.count;
+      byStatus.set(r.status, (byStatus.get(r.status) ?? 0) + r.count);
+    } else if (r.status === "Revoked") {
+      revoked += r.count;
+    } else if (r.stage === "Closure Accept") {
+      done += r.count;
+    }
+  }
+  const topReject = [...byStatus].sort((a, b) => b[1] - a[1])[0] ?? null;
+  return { total, rejected, revoked, done, topReject };
+}
+
+/** Flow definition plus the insights derived from the same buckets. */
+export interface FlowResult {
+  definition: string;
+  insights: FlowInsights;
+}
+
+/**
+ * Compute the flow for one register month (no trail data): statuses are
+ * translated to the live vocabulary and bucketed onto occupancy stages;
+ * chain edges render structurally (unlabeled).
+ */
+export function computeMonthlyFlow(
+  rows: MonthlyStatusCount[],
+  month: string,
+): FlowResult {
+  const stageStatus: StageStatusCount[] = [];
+  for (const r of rows) {
+    if (r.month !== month) continue;
+    const t = REGISTER_TRANSLATE[r.status] ?? { stage: "Other", status: r.status };
+    stageStatus.push({ stage: t.stage, status: t.status, count: r.count });
+  }
+  return {
+    definition: buildFlowDefinition([], stageStatus),
+    insights: flowInsights(stageStatus),
+  };
+}
+
 /** Minimal permit shape for client-side flow computation (static JSON). */
 export interface PermitLite {
   apply_id: number;
@@ -236,7 +336,7 @@ export function computeFlow(
   steps: StepLite[],
   from: string,
   to: string,
-): string {
+): FlowResult {
   const statusByPermit = new Map<number, string>();
   for (const p of permits) {
     if (p.applied_on >= from && p.applied_on <= to) {
@@ -276,5 +376,8 @@ export function computeFlow(
     const [stage, status] = k.split("|");
     return { stage, status, count };
   });
-  return buildFlowDefinition(transitions, stageStatus);
+  return {
+    definition: buildFlowDefinition(transitions, stageStatus),
+    insights: flowInsights(stageStatus),
+  };
 }

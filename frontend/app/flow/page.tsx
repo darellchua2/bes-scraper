@@ -31,19 +31,29 @@ export default function FlowPage() {
         </CardContent>
       </Card>
 
-      <section className="grid gap-4 md:grid-cols-2">
-        {STAGE_EXPLANATIONS.map((s) => (
-          <Card key={s.stage}>
-            <CardHeader>
-              <CardTitle className="text-base">{s.stage}</CardTitle>
-              <CardDescription>{s.persona}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-sm">{s.text}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>How to read this diagram</CardTitle>
+          <CardDescription>
+            Each stage maps to the SG PTW role model; every approval gate can
+            reject into its own terminal.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-2 text-sm">
+            {STAGE_EXPLANATIONS.map((s) => (
+              <li key={s.stage}>
+                <span className="font-medium">{s.stage}</span>
+                {s.persona !== "—" && (
+                  <span className="text-muted-foreground"> ({s.persona})</span>
+                )}
+                {" — "}
+                <span className="text-muted-foreground">{s.text}</span>
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
     </main>
   );
 }

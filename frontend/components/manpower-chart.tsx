@@ -1,32 +1,42 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Bar, BarChart, XAxis, YAxis } from "recharts";
-import { Button } from "@/components/ui/button";
+import { useEffect, useMemo, useState } from "react";
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { Button } from "@/components/ui/button";
 import type { CompanyManpowerRow } from "@/lib/queries";
 
-const manpowerConfig = {
-  manpower: { label: "Member rows declared", color: "var(--chart-1)" },
-  unique_workers: { label: "Unique workers", color: "var(--chart-2)" },
-} satisfies ChartConfig;
+/** Metric toggles: raw member rows vs distinct workers (by ID number). */
+const METRICS = [
+  ["manpower", "Member rows declared"],
+  ["unique_workers", "Unique workers"],
+] as const;
 
-type Metric = keyof typeof manpowerConfig;
+type MetricKey = (typeof METRICS)[number][0];
+
+/** Deterministic, distinguishable company colours (golden-angle hue steps). */
+function companyColor(index: number): string {
+  return `hsl(${Math.round(index * 137.508) % 360} 70% 45%)`;
+}
 
 /**
- * Horizontal bar chart of manpower declared on PTWs per company, parsed from
- * the permit PDFs (live window only). Toggle between raw member rows and
- * distinct workers (by ID number).
+ * Stacked bar chart of manpower declared on PTWs: x = application day, stacks
+ * = companies. Parsed from the permit PDFs (live window only). Legend entries
+ * toggle companies; buttons switch raw member rows / unique workers.
  */
 export function ManpowerChart() {
   const [rows, setRows] = useState<CompanyManpowerRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [metric, setMetric] = useState<Metric>("manpower");
+  const [metric, setMetric] = useState<MetricKey>("manpower");
+  const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
 
   useEffect(() => {
     fetch("/data/company-manpower")
@@ -38,41 +48,77 @@ export function ManpowerChart() {
       .catch((e) => setError(String(e)));
   }, []);
 
+  const companies = useMemo(
+    () => [...new Set((rows ?? []).map((r) => r.company))].sort(),
+    [rows],
+  );
+
+  /** Pivot to recharts shape: {date, [company]: value}. */
+  const data = useMemo(() => {
+    const days = new Map<string, Record<string, number | string>>();
+    for (const r of rows ?? []) {
+      let d = days.get(r.date);
+      if (!d) {
+        d = { date: r.date };
+        days.set(r.date, d);
+      }
+      d[r.company] = r[metric];
+    }
+    return [...days.values()];
+  }, [rows, metric]);
+
   if (error) return <pre className="text-sm text-red-600">{error}</pre>;
   if (!rows) return <p className="text-sm text-muted-foreground">Loading manpower…</p>;
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        {(Object.keys(manpowerConfig) as Metric[]).map((m) => (
+      <div className="flex flex-wrap items-center gap-2">
+        {METRICS.map(([key, label]) => (
           <Button
-            key={m}
-            variant={metric === m ? "default" : "outline"}
+            key={key}
+            variant={metric === key ? "default" : "outline"}
             size="sm"
-            onClick={() => setMetric(m)}
+            onClick={() => setMetric(key)}
           >
-            {manpowerConfig[m].label}
+            {label}
           </Button>
         ))}
+        <span className="text-muted-foreground text-xs">
+          {companies.length} companies — click legend entries to hide/show
+        </span>
       </div>
-      <ChartContainer
-        config={manpowerConfig}
-        className="w-full"
-        style={{ height: Math.max(320, rows.length * 26) }}
-      >
-        <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-          <XAxis type="number" allowDecimals={false} fontSize={11} tickLine={false} />
-          <YAxis
-            type="category"
-            dataKey="company"
-            width={200}
-            fontSize={10}
-            tickLine={false}
-          />
-          <ChartTooltip content={<ChartTooltipContent />} />
-          <Bar dataKey={metric} fill={`var(--color-${metric})`} radius={[0, 3, 3, 0]} />
-        </BarChart>
-      </ChartContainer>
+      <div className="h-[380px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+            <CartesianGrid vertical={false} />
+            <XAxis dataKey="date" fontSize={11} tickLine={false} />
+            <YAxis allowDecimals={false} width={44} fontSize={11} tickLine={false} />
+            <Tooltip />
+            <Legend
+              wrapperStyle={{ fontSize: 11 }}
+              onClick={(e) => {
+                const key = String((e as { dataKey?: unknown }).dataKey ?? "");
+                if (!key) return;
+                setHidden((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(key)) next.delete(key);
+                  else next.add(key);
+                  return next;
+                });
+              }}
+            />
+            {companies.map((c, i) => (
+              <Bar
+                key={c}
+                dataKey={c}
+                stackId="a"
+                fill={companyColor(i)}
+                hide={hidden.has(c)}
+              />
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }

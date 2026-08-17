@@ -36,10 +36,11 @@ export default function FlowPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Declared manpower by company</CardTitle>
+          <CardTitle>Declared manpower by company and day</CardTitle>
           <CardDescription>
-            Member(s) declared on each PTW, parsed from the permit PDFs. Live
-            window only — historical months have no PDFs.
+            Member(s) declared on each PTW, parsed from the permit PDFs — one
+            bar per application day, stacked by company. Live window only —
+            historical months have no PDFs.
           </CardDescription>
         </CardHeader>
         <CardContent>

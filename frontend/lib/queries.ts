@@ -458,23 +458,25 @@ export async function getInsights(): Promise<Insight[]> {
 }
 
 export interface CompanyManpowerRow {
+  date: string;
   company: string;
   manpower: number;
   unique_workers: number;
 }
 
 /**
- * Declared manpower per company: Member(s) rows parsed from the PTW PDFs.
- * PDFs exist only for the live permits window (no history).
+ * Declared manpower per company per application day: Member(s) rows parsed
+ * from the PTW PDFs. PDFs exist only for the live permits window (no history).
  */
 export async function getCompanyManpower(): Promise<CompanyManpowerRow[]> {
   return query<CompanyManpowerRow>(`
-    SELECT p.company,
-           count(*)::int                    AS manpower,
+    SELECT p.applied_on::date::text          AS date,
+           p.company,
+           count(*)::int                     AS manpower,
            count(DISTINCT pm.id_number)::int AS unique_workers
     FROM permit_members pm
     JOIN permits p ON p.apply_id = pm.apply_id
-    GROUP BY p.company
-    ORDER BY manpower DESC
+    GROUP BY 1, 2
+    ORDER BY 1, 2
   `);
 }

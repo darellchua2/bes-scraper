@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FlowExplorer } from "@/components/flow-explorer";
-import { STAGE_EXPLANATIONS } from "@/lib/flow";
+import { HowToReadTip } from "@/components/how-to-read-tip";
 
 /**
  * Permit lifecycle page: node-edge diagram of the approval chain with
@@ -20,7 +20,9 @@ export default function FlowPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Approval chain</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            Approval chain <HowToReadTip />
+          </CardTitle>
           <CardDescription>
             Edge counts = observed step-to-step transitions. Dotted edges lead
             to terminal states.
@@ -28,30 +30,6 @@ export default function FlowPage() {
         </CardHeader>
         <CardContent>
           <FlowExplorer />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>How to read this diagram</CardTitle>
-          <CardDescription>
-            Each stage maps to the SG PTW role model; every approval gate can
-            reject into its own terminal.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2 text-sm">
-            {STAGE_EXPLANATIONS.map((s) => (
-              <li key={s.stage}>
-                <span className="font-medium">{s.stage}</span>
-                {s.persona !== "—" && (
-                  <span className="text-muted-foreground"> ({s.persona})</span>
-                )}
-                {" — "}
-                <span className="text-muted-foreground">{s.text}</span>
-              </li>
-            ))}
-          </ul>
         </CardContent>
       </Card>
     </main>

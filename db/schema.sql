@@ -118,3 +118,30 @@ CREATE TABLE IF NOT EXISTS permit_register (
 );
 CREATE INDEX IF NOT EXISTS permit_register_company_idx ON permit_register (company);
 CREATE INDEX IF NOT EXISTS permit_register_status_idx ON permit_register (status);
+
+-- Per-worker document attachments from comp/staff/attachlist
+-- (downloads/staff/staff_docs.jsonl) — certificates, passports, etc.
+-- This is where BES tracks expiry dates (equipment has none).
+CREATE TABLE IF NOT EXISTS staff_documents (
+    id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    staff_id    integer NOT NULL REFERENCES staff(staff_id) ON DELETE CASCADE,
+    document_no text,
+    doc_type    text,
+    issue_date  date,
+    expiry_date date,
+    uploaded_on date
+);
+CREATE INDEX IF NOT EXISTS staff_documents_expiry_idx ON staff_documents (expiry_date);
+
+-- Manpower declared on each PTW: the Member(s) table parsed from the permit
+-- PDFs (downloads/ptw/members.jsonl via extract_ptw_members.py).
+-- PDFs exist only for the live permits window; historical months have none.
+CREATE TABLE IF NOT EXISTS permit_members (
+    id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    apply_id    bigint NOT NULL REFERENCES permits (apply_id) ON DELETE CASCADE,
+    id_number   text,
+    name        text,
+    employee_id text,
+    designation text
+);
+CREATE INDEX IF NOT EXISTS permit_members_apply_idx ON permit_members (apply_id);

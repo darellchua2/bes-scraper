@@ -269,6 +269,73 @@ def load_permit_register(cur) -> int:
     return len(batch)
 
 
+def load_staff_documents(cur) -> int:
+    """Load per-worker document attachments from downloads/staff/staff_docs.jsonl.
+
+    One JSONL line per worker ({"staff_id": ..., "documents": [...]}); rows are
+    flattened into staff_documents. Duplicates within the file are skipped.
+    """
+    path = ROOT / "downloads" / "staff" / "staff_docs.jsonl"
+    if not path.exists():
+        return 0
+    seen: set[tuple] = set()
+    batch = []
+    for line in path.read_text().splitlines():
+        if not line.strip():
+            continue
+        rec = json.loads(line)
+        for d in rec["documents"]:
+            row = (
+                rec["staff_id"], d.get("document_no"), d.get("doc_type"),
+                parse_date(d.get("issue_date")), parse_date(d.get("expiry_date")),
+                parse_date(d.get("uploaded_on")),
+            )
+            if row in seen:
+                continue
+            seen.add(row)
+            batch.append(row)
+    cur.executemany(
+        "INSERT INTO staff_documents"
+        " (staff_id, document_no, doc_type, issue_date, expiry_date, uploaded_on)"
+        " VALUES (%s,%s,%s,%s,%s,%s)",
+        batch,
+    )
+    return len(batch)
+
+
+def load_permit_members(cur) -> int:
+    """Load PTW member rows from downloads/ptw/members.jsonl into permit_members.
+
+    One JSONL line per permit ({"apply_id": ..., "members": [...]}); rows are
+    flattened. Duplicates within the file are skipped.
+    """
+    path = ROOT / "downloads" / "ptw" / "members.jsonl"
+    if not path.exists():
+        return 0
+    seen: set[tuple] = set()
+    batch = []
+    for line in path.read_text().splitlines():
+        if not line.strip():
+            continue
+        rec = json.loads(line)
+        for m in rec["members"]:
+            row = (
+                rec["apply_id"], m.get("id_number"), m.get("name"),
+                m.get("employee_id"), m.get("designation"),
+            )
+            if row in seen:
+                continue
+            seen.add(row)
+            batch.append(row)
+    cur.executemany(
+        "INSERT INTO permit_members"
+        " (apply_id, id_number, name, employee_id, designation)"
+        " VALUES (%s,%s,%s,%s,%s)",
+        batch,
+    )
+    return len(batch)
+
+
 def main() -> None:
     """Apply schema, truncate, reload every table, and print loaded counts."""
     load_dotenv(ROOT / ".env")
@@ -279,7 +346,7 @@ def main() -> None:
             cur.execute(
                 "TRUNCATE permits, staff, equipment, company_documents,"
                 " monthly_stats, company_daily_stats, monthly_permit_status,"
-                " permit_register CASCADE"
+                " permit_register, staff_documents, permit_members CASCADE"
             )
             counts = {
                 "permits": load_permits(cur),
@@ -290,6 +357,8 @@ def main() -> None:
                 "company_daily_stats": load_company_daily_stats(cur),
                 "monthly_permit_status": load_monthly_permit_status(cur),
                 "permit_register": load_permit_register(cur),
+                "staff_documents": load_staff_documents(cur),
+                "permit_members": load_permit_members(cur),
             }
             counts["approval_steps"], counts["permit_checklists"], counts["permit_attachments"] = (
                 load_approval_trail(cur)

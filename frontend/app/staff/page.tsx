@@ -7,7 +7,8 @@ import {
 } from "@/components/ui/card";
 import { FilterTable, type FilterColumn } from "@/components/filter-table";
 import { DataCoverage } from "@/components/data-coverage";
-import { getStaffCoverage } from "@/lib/queries";
+import { InsightsCard } from "@/components/insights-card";
+import { getStaffCoverage, getStaffInsights } from "@/lib/queries";
 
 const COLUMNS: FilterColumn[] = [
   { key: "full_name", label: "Name" },
@@ -23,9 +24,10 @@ const COLUMNS: FilterColumn[] = [
 
 /** Staff register page: filterable table fed by the static /data/staff JSON. */
 export default async function StaffPage() {
-  const coverage = await getStaffCoverage();
+  const [coverage, insights] = await Promise.all([getStaffCoverage(), getStaffInsights()]);
   return (
-    <main className="mx-auto max-w-7xl p-6">
+    <main className="mx-auto flex max-w-7xl flex-col gap-6 p-6">
+      <InsightsCard items={insights} />
       <Card>
         <CardHeader>
           <CardTitle>Staff register</CardTitle>

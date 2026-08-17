@@ -1,14 +1,17 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FlowExplorer } from "@/components/flow-explorer";
 import { HowToReadTip } from "@/components/how-to-read-tip";
+import { InsightsCard } from "@/components/insights-card";
 import { ManpowerChart } from "@/components/manpower-chart";
+import { getFlowInsights } from "@/lib/queries";
 
 /**
  * Permit lifecycle page: node-edge diagram of the approval chain with
  * plain-English explainers per stage (SG PTW role model naming). The diagram
  * recomputes client-side for the selected application-date range.
  */
-export default function FlowPage() {
+export default async function FlowPage() {
+  const insights = await getFlowInsights();
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
       <header>
@@ -18,6 +21,8 @@ export default function FlowPage() {
           where permits currently sit. Filter by application date.
         </p>
       </header>
+
+      <InsightsCard items={insights} />
 
       <Card>
         <CardHeader>

@@ -1,13 +1,17 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CompanyTrends } from "@/components/company-trends";
-import { getDailyStatsCompanies } from "@/lib/queries";
+import { InsightsCard } from "@/components/insights-card";
+import { getCompanyInsights, getDailyStatsCompanies } from "@/lib/queries";
 
 /**
  * Company trends page: per-company daily activity (permits, toolbox meetings,
  * checklists, inspections) from the frozen BES statistics snapshots.
  */
 export default async function CompaniesPage() {
-  const companies = await getDailyStatsCompanies();
+  const [companies, insights] = await Promise.all([
+    getDailyStatsCompanies(),
+    getCompanyInsights(),
+  ]);
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
@@ -18,6 +22,8 @@ export default async function CompaniesPage() {
           snapshots; participants/ratio fields are omitted here.
         </p>
       </header>
+
+      <InsightsCard items={insights} />
 
       <Card>
         <CardHeader>

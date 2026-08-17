@@ -1,5 +1,5 @@
+import { InsightsCard } from "@/components/insights-card";
 import { OverviewDashboard } from "@/components/overview-dashboard";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getInsights, getOverviewKpis } from "@/lib/queries";
 
 /**
@@ -18,22 +18,9 @@ export default async function Home() {
         period.
       </p>
 
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Key insights</CardTitle>
-          <CardDescription>
-            Derived from the database at build time — every figure comes from
-            the scraped data.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ul className="list-disc space-y-1.5 pl-5 text-sm">
-            {insights.map((line, i) => (
-              <li key={i}>{line}</li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
+      <div className="mt-6">
+        <InsightsCard items={insights} />
+      </div>
 
       <div className="mt-6">
         <OverviewDashboard

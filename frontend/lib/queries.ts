@@ -375,8 +375,12 @@ function pct(part: number, whole: number): string {
  *
  * @returns insight lines ready to render as list items
  */
+/** Compact "from → to" window suffix for insight lines. */
+const win = (from: string | null | undefined, to: string | null | undefined) =>
+  from && to ? ` (${from} → ${to})` : "";
+
 export async function getInsights(): Promise<Insight[]> {
-  const [live, register, span, peak, topCompany, churn] = await Promise.all([
+  const [live, register, span, peak, topCompany, churn, liveSpan] = await Promise.all([
     query<{ status: string; count: number }>(
       `SELECT status, count(*)::int AS count FROM permits GROUP BY status`,
     ),
@@ -403,7 +407,10 @@ export async function getInsights(): Promise<Insight[]> {
     query<{ permits: number; avg_steps: number; resubmitted: number }>(
       `WITH s AS (SELECT apply_id, count(*) AS n FROM approval_steps GROUP BY apply_id)
        SELECT count(*)::int AS permits, avg(n)::float8 AS avg_steps,
-              count(*) FILTER (WHERE n > 5)::int AS resubmitted FROM s`,
+               count(*) FILTER (WHERE n > 5)::int AS resubmitted FROM s`,
+    ),
+    query<{ from: string; to: string }>(
+      `SELECT min(applied_on)::date::text AS "from", max(applied_on)::date::text AS "to" FROM permits`,
     ),
   ]);
 
@@ -420,6 +427,8 @@ export async function getInsights(): Promise<Insight[]> {
   const inspector = liveOf("Inspector");
   const reg = register[0];
   const trail = churn[0];
+  const liveAt = win(liveSpan[0]?.from, liveSpan[0]?.to);
+  const regAt = win(span[0]?.from_m, span[0]?.to_m);
 
   const n = (x: number) => x.toLocaleString("en-SG");
   const insights: Insight[] = [];
@@ -427,21 +436,21 @@ export async function getInsights(): Promise<Insight[]> {
   if (topReject) {
     insights.push(
       `Top rejection gate is ${topReject.status.replace("Rejected(", "").replace(")", "")} ` +
-        `(${n(topReject.count)} permits, ${pct(topReject.count, liveRejected)}% of all rejections in the live window).`,
+        `(${n(topReject.count)} permits, ${pct(topReject.count, liveRejected)}% of all rejections)${liveAt}.`,
     );
   }
   insights.push(
     `Closure is the bottleneck: ${pct(backlog, liveTotal)}% of live permits (${n(backlog)} of ${n(liveTotal)}) ` +
-      `sit at "Applicant - Works completion", while only ${n(liveClosed)} have been closure-accepted. ` +
-      `Historically ${pct(reg.done, reg.total)}% of permits (${n(reg.done)} of ${n(reg.total)}) reach a closed state.`,
+      `sit at "Applicant - Works completion", while only ${n(liveClosed)} have been closure-accepted${liveAt}. ` +
+      `Historically ${pct(reg.done, reg.total)}% of permits (${n(reg.done)} of ${n(reg.total)}) reach a closed state${regAt}.`,
   );
   insights.push(
     `${n(inspector)} permits carry status "Inspector" — a gate BES never records in approval trails ` +
-      `(the monthly reports' "Assessed 2" row).`,
+      `(the monthly reports' "Assessed 2" row)${liveAt}.`,
   );
   insights.push(
     `Average approval trail is ${trail.avg_steps.toFixed(1)} steps vs the 5-step happy path; ` +
-      `${n(trail.resubmitted)} permits (${pct(trail.resubmitted, trail.permits)}%) needed more than 5 steps (rejection + resubmission).`,
+      `${n(trail.resubmitted)} permits (${pct(trail.resubmitted, trail.permits)}%) needed more than 5 steps (rejection + resubmission)${liveAt}.`,
   );
   insights.push(
     `The register spans ${span[0].months} months (${span[0].from_m} → ${span[0].to_m}); ` +
@@ -449,10 +458,10 @@ export async function getInsights(): Promise<Insight[]> {
   );
   insights.push(
     `Most active company: ${topCompany[0].company} with ${n(topCompany[0].n)} permits ` +
-      `(${pct(topCompany[0].n, reg.total)}% of all-time).`,
+      `(${pct(topCompany[0].n, reg.total)}% of all-time)${regAt}.`,
   );
   insights.push(
-    `Data hygiene: ${pct(reg.no_approver, reg.total)}% of register rows (${n(reg.no_approver)}) have no Approved Person recorded.`,
+    `Data hygiene: ${pct(reg.no_approver, reg.total)}% of register rows (${n(reg.no_approver)}) have no Approved Person recorded${regAt}.`,
   );
   return insights;
 }
@@ -530,9 +539,10 @@ export async function getFlowInsights(): Promise<Insight[]> {
              FROM approval_steps s JOIN permits p USING (apply_id)
              GROUP BY s.apply_id, p.status) t`,
     ),
-    query<{ per_day: number; days: number }>(
+    query<{ per_day: number; days: number; from: string; to: string }>(
       `SELECT (count(*)::float8 / GREATEST(1, max(applied_on)::date - min(applied_on)::date)) AS per_day,
-              (max(applied_on)::date - min(applied_on)::date)::int AS days
+              (max(applied_on)::date - min(applied_on)::date)::int AS days,
+              min(applied_on)::date::text AS "from", max(applied_on)::date::text AS "to"
        FROM permits`,
     ),
   ]);
@@ -541,24 +551,25 @@ export async function getFlowInsights(): Promise<Insight[]> {
   const a = approver[0];
   const s = split[0];
   const p = pace[0];
+  const w = win(p?.from, p?.to);
   const lines: Insight[] = [];
   if (f) {
     lines.push(
       `Approval funnel: of ${f.submitted.toLocaleString("en-SG")} permits submitted, ` +
-        `${pct(f.approved, f.submitted)} reached approval and ${pct(f.closed, f.submitted)} reached closure acceptance.`,
+        `${pct(f.approved, f.submitted)}% reached approval and ${pct(f.closed, f.submitted)}% reached closure acceptance${w}.`,
     );
     if (f.resubmitted > 0) {
-      lines.push(`${f.resubmitted.toLocaleString("en-SG")} permits (${pct(f.resubmitted, f.submitted)}) were submitted more than once — resubmission after rejection.`);
+      lines.push(`${f.resubmitted.toLocaleString("en-SG")} permits (${pct(f.resubmitted, f.submitted)}%) were submitted more than once — resubmission after rejection${w}.`);
     }
   }
   if (a) {
-    lines.push(`Approval workload is concentrated: ${a.actor_name} signed off ${a.steps.toLocaleString("en-SG")} of ${a.total.toLocaleString("en-SG")} Approve steps (${pct(a.steps, a.total)}).`);
+    lines.push(`Approval workload is concentrated: ${a.actor_name} signed off ${a.steps.toLocaleString("en-SG")} of ${a.total.toLocaleString("en-SG")} Approve steps (${pct(a.steps, a.total)}%)${w}.`);
   }
   if (s && s.rejected_avg !== null && s.clean_avg !== null) {
-    lines.push(`Rejected permits accumulate ${s.rejected_avg.toFixed(1)} trail steps on average vs ${s.clean_avg.toFixed(1)} for never-rejected ones — each rejection costs a rework loop.`);
+    lines.push(`Rejected permits accumulate ${s.rejected_avg.toFixed(1)} trail steps on average vs ${s.clean_avg.toFixed(1)} for never-rejected ones — each rejection costs a rework loop${w}.`);
   }
   if (p) {
-    lines.push(`Live-window pace: ${p.per_day.toFixed(0)} applications/day on average over ${p.days} days.`);
+    lines.push(`Live-window pace: ${p.per_day.toFixed(0)} applications/day on average over ${p.days} days (${p.from} → ${p.to}).`);
   }
   return lines;
 }
@@ -596,22 +607,23 @@ export async function getCompanyInsights(): Promise<Insight[]> {
   ]);
 
   const c = coverage[0];
+  const w = win(c?.from, c?.to);
   const lines: Insight[] = [];
   if (c) {
     lines.push(`Daily-report coverage: ${c.companies} companies over ${c.days.toLocaleString("en-SG")} tracked days (${c.from} → ${c.to}).`);
   }
   if (topCompany[0]) {
     const t = topCompany[0];
-    lines.push(`${t.company} accounts for ${t.ptw.toLocaleString("en-SG")} permits (${pct(t.ptw, t.total)} of all tracked) — the largest contractor on record.`);
+    lines.push(`${t.company} accounts for ${t.ptw.toLocaleString("en-SG")} permits (${pct(t.ptw, t.total)}% of all tracked) — the largest contractor on record${w}.`);
   }
   if (busiestDay[0]) {
     lines.push(`Busiest single day: ${busiestDay[0].stat_date} with ${busiestDay[0].ptw.toLocaleString("en-SG")} permits across all companies.`);
   }
   if (incidents[0] && incidents[0].total > 0) {
-    lines.push(`${incidents[0].total.toLocaleString("en-SG")} incidents recorded in total; ${incidents[0].company} reports the most (${incidents[0].company_total.toLocaleString("en-SG")}).`);
+    lines.push(`${incidents[0].total.toLocaleString("en-SG")} incidents recorded in total; ${incidents[0].company} reports the most (${incidents[0].company_total.toLocaleString("en-SG")})${w}.`);
   }
   if (ratio[0]) {
-    lines.push(`Toolbox meetings outnumber permits ${ratio[0].ratio.toFixed(1)}:1 — briefing cadence is well above one per permit.`);
+    lines.push(`Toolbox meetings run at ${ratio[0].ratio.toFixed(2)} per permit tracked${w}.`);
   }
   return lines;
 }
@@ -642,22 +654,24 @@ export async function getStaffInsights(): Promise<Insight[]> {
       `SELECT count(*)::int AS n FROM staff
        WHERE created_on > (SELECT max(created_on) FROM staff) - interval '1 year'`,
     ),
-    query<{ expired: number; expiring: number }>(
+    query<{ expired: number; expiring: number; as_of: string }>(
       `SELECT count(*) FILTER (WHERE expiry_date < CURRENT_DATE)::int AS expired,
               count(*) FILTER (WHERE expiry_date >= CURRENT_DATE
-                 AND expiry_date <= CURRENT_DATE + interval '90 days')::int AS expiring
+                 AND expiry_date <= CURRENT_DATE + interval '90 days')::int AS expiring,
+              CURRENT_DATE::text AS as_of
        FROM staff_documents WHERE expiry_date IS NOT NULL`,
     ),
   ]);
 
   const total = secondment[0]?.total ?? 0;
+  const w = win(span[0]?.from, span[0]?.to);
   const lines: Insight[] = [];
   if (span[0]) lines.push(`${total.toLocaleString("en-SG")} workers on the register, accumulated ${span[0].from} → ${span[0].to}.`);
-  if (secondment[0]) lines.push(`${secondment[0].seconded.toLocaleString("en-SG")} workers (${pct(secondment[0].seconded, total)}) are seconded from other companies.`);
-  if (nationality[0]) lines.push(`Workforce spans ${nationality[0].total} nationalities; the largest group is ${nationality[0].nationality} (${nationality[0].n.toLocaleString("en-SG")} workers).`);
-  if (designation[0]) lines.push(`Most common designation: ${designation[0].designation} (${designation[0].n.toLocaleString("en-SG")} workers).`);
-  if (recent[0]) lines.push(`${recent[0].n.toLocaleString("en-SG")} workers were registered in the last 12 months.`);
-  if (expiry[0]) lines.push(`${expiry[0].expired.toLocaleString("en-SG")} tracked documents have expired and ${expiry[0].expiring.toLocaleString("en-SG")} expire within 90 days (listed below).`);
+  if (secondment[0]) lines.push(`${secondment[0].seconded.toLocaleString("en-SG")} workers (${pct(secondment[0].seconded, total)}%) are seconded from other companies${w}.`);
+  if (nationality[0]) lines.push(`Workforce spans ${nationality[0].total} nationalities; the largest group is ${nationality[0].nationality} (${nationality[0].n.toLocaleString("en-SG")} workers)${w}.`);
+  if (designation[0]) lines.push(`Most common designation: ${designation[0].designation} (${designation[0].n.toLocaleString("en-SG")} workers)${w}.`);
+  if (recent[0] && span[0]) lines.push(`${recent[0].n.toLocaleString("en-SG")} workers were registered in the 12 months to ${span[0].to}.`);
+  if (expiry[0]) lines.push(`${expiry[0].expired.toLocaleString("en-SG")} tracked documents have expired and ${expiry[0].expiring.toLocaleString("en-SG")} expire within 90 days (as of ${expiry[0].as_of}, listed below).`);
   return lines;
 }
 
@@ -665,7 +679,7 @@ export async function getStaffInsights(): Promise<Insight[]> {
  * Equipment-register insight lines, derived from the equipment table at build time.
  */
 export async function getEquipmentInsights(): Promise<Insight[]> {
-  const [totals, topType, busiestMonth, registered] = await Promise.all([
+  const [totals, topType, busiestMonth, registered, span] = await Promise.all([
     query<{ total: number; types: number }>(
       `SELECT count(*)::int AS total, count(DISTINCT equipment_type)::int AS types FROM equipment`,
     ),
@@ -682,14 +696,19 @@ export async function getEquipmentInsights(): Promise<Insight[]> {
       `SELECT count(*) FILTER (WHERE registration_no <> '')::int AS with_reg, count(*)::int AS total
        FROM equipment`,
     ),
+    query<{ from: string; to: string }>(
+      `SELECT min(created_on)::text AS "from", max(created_on)::text AS "to"
+       FROM equipment WHERE created_on IS NOT NULL`,
+    ),
   ]);
 
   const t = totals[0];
+  const w = win(span[0]?.from, span[0]?.to);
   const lines: Insight[] = [];
-  if (t) lines.push(`${t.total.toLocaleString("en-SG")} equipment items across ${t.types} types on the register.`);
-  if (topType[0] && t) lines.push(`Most common type: ${topType[0].equipment_type} (${topType[0].n.toLocaleString("en-SG")} items, ${pct(topType[0].n, t.total)}).`);
+  if (t) lines.push(`${t.total.toLocaleString("en-SG")} equipment items across ${t.types} types on the register${w}.`);
+  if (topType[0] && t) lines.push(`Most common type: ${topType[0].equipment_type} (${topType[0].n.toLocaleString("en-SG")} items, ${pct(topType[0].n, t.total)}%)${w}.`);
   if (busiestMonth[0]) lines.push(`Busiest registration month: ${busiestMonth[0].month} (${busiestMonth[0].n.toLocaleString("en-SG")} items added).`);
-  if (registered[0] && t) lines.push(`${pct(registered[0].with_reg, t.total)} of items have a registration number on file.`);
+  if (registered[0] && t) lines.push(`${pct(registered[0].with_reg, t.total)}% of items have a registration number on file${w}.`);
   lines.push("BES tracks no expiry dates for equipment — certificate/passport expiry lives on the staff document attachments instead.");
   return lines;
 }
